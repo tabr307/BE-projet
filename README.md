@@ -1,76 +1,50 @@
-# Projet Central Processing Unit
-## Un simulateur de CPU avec assembleur
+# Simulation Réseau IP
+## Présentation du Projet
 
-**But :** Le but de ce projet est de créer un simulateur de processeur et un assembleur en Java.
+Ce projet consiste en le développement d'une application Web multi-utilisateurs dédiée à la formation de techniciens réseau. L'objectif est de fournir un outil interactif pour simuler des scénarios d'adressage IPv4 et de routage statique. L'application permet de visualiser dynamiquement les infrastructures réseau et de simuler le parcours de datagrammes IP entre différents hotes. 
 
----
+## Objectifs Pédagogiques
 
-## Étape 1 : Gestion des registres, de la mémoire et des instructions simples
+   - Adressage IP : Maitriser les principes fondamentaux de l'IPv4.
+   - Routage : Comprendre les mécanismes du routage statique.
+   - Développement : Implémenter une application Web avec base de données et visualisation dynamique.
 
-* **Registres :** Gestion d'un ensemble de **16 registres** stockant chacun une valeur sur **8 bits** (type `byte`).
-* **Mémoire :** Association d'une mémoire de **64 Ko** (65 536 valeurs de type `byte`).
-* **Compteur de programme (PC) :** Un registre spécial de **16 bits** qui indique la prochaine instruction à exécuter (initialisé à 0).
+## Fonctionnalités Clés
 
-### Instructions de base :
-* **Load :** Charge une valeur dans un registre (constante ou depuis une adresse mémoire).
-* **Store :** Sauvegarde la valeur d'un registre en mémoire.
-* **Break :** Arrête l'exécution du programme.
+### 1. Gestion de l'Infrastructure
+   - Définition complète (ajout, modification, suppression) des réseaux, sous-réseaux et hôtes.
+   - Configuration des adresses IP pour chaque élément.  
 
-Chaque instruction possède un code numérique suivi d'un ou plusieurs paramètres (ex: numéro de registre, constante, adresse).
+### 2. Routage Statique
+   - Interface intuitive pour définir et manipuler les routes statiques entre les éléments du réseau.  
 
----
+### 3. Visualisation Dynamique
+   - Représentation graphique claire des connexions entre hôtes et routeurs via la bibliothèque vis.js.
+   - Affichage explicite des routes établies.
+   
+### 4. Simulation de Datagrammes
+   - Simulation de l'envoi d'un paquet d'un hôte vers un autre.
+   - Suivi en temps réel : Visualisation interactive du chemin emprunté.
+   - Analyse d'entête : Affichage des modifications apportées par les routeurs (TTL, Checksum, etc.).
 
-## Étape 2 : Gestion de l'Assembleur
+## Stack Technique
+   - Frontend : HTML, CSS, JavaScript (vis.js).
+   - Backend : PHP pour la gestion multi-utilisateurs avec authentification sécurisée.
+   - BD : PostgreSQL pour le stockage des configurations et scénarios.
 
-L'objectif est de proposer un assembleur qui traduit une suite d'instructions lisibles en codes et paramètres binaires stockés en mémoire.
+## Livrables du Projet
+Le projet inclut les documents suivants pour assurer un suivi professionnel:  
 
-### Exemples de correspondance :
+1. Documentation & Ressources : Sources utilisées et historique des prompts IA.  
 
-| Assembleur | Signification | Valeurs en mémoire |
-| :--- | :--- | :--- |
-| `load r0, 5` | Charge la valeur 5 dans le registre 0 | `0 0 5` |
-| `load r1, 6` | Charge la valeur 6 dans le registre 1 | `0 1 6` |
-| `load r2, @100` | Charge la valeur à l'adresse 100 dans r2 | `1 2 0 100` |
-| `store r0, @101` | Stocke r0 à l'adresse mémoire 101 | `2 0 0 101` |
-| `store r1, @0x6500`| Stocke r1 à l'adresse 0x6500 (hexadécimal) | `2 1 101 0` |
+2. Spécifications : Document détaillant les exigences fonctionnelles et non fonctionnelles.  
 
----
+3. Planification : Diagramme de Gantt.  
 
-## Étape 3 : Gestion de l'unité arithmétique et logique (ALU)
+4. Conception : Modèle de données, architecture applicative et maquettes UI.  
 
-Implémentation d'opérations sur les registres:
-* **Addition / Soustraction**.
-* **Multiplication :** Résultat stocké sur deux registres.
-* **Division :** Un registre pour le quotient et un pour le reste.
-* **Opérations logiques :** OU, ET, OU exclusif (XOR) binaires.
+5. Implémentation : Code source commenté et journal de suivi des versions (Git).  
 
----
+6. Tests : Plan de tests et rapports détaillés.  
 
-## Étape 4 : Gestion des boucles et des conditionnelles
-
-* **Jump :** Sauter à une adresse mémoire indiquée.
-* **Beq (Branch if equal) :** Compare deux registres et saute si égaux.
-* **Bne (Branch if not equal) :** Saute si les registres sont différents.
-
----
-
-## Étape 5 : Gestion des tableaux
-
-* **Load/Store indexé :** Exemple `load r0, @0x100, r1` charge dans `r0` la valeur située à l'adresse `0x100 + r1`.
-* **Directives de données :** * `data 0, 1, 2, 3` : Écrit des valeurs brutes en mémoire.
-    * `string "abcd"` : Écrit le code UTF-8 des caractères en mémoire.
-
----
-
-## Organisation du projet et livrables
-
-Le projet se réalise par **trinôme au maximum**.
-
-### Parties attendues :
-1.  **Conception (Partie I) :** Dossier avec diagrammes UML (cas d'utilisation, séquence détaillés, classes).
-2.  **Développement (Partie II) :** Code Java testé et fonctionnel.
-3.  **Évaluation (Partie III) :** * Présentations régulières avec démonstrations (jeu de tests).
-    * Rendu du rapport PDF et des sources sur Moodle STRI.
-    * Vidéo de démonstration finale sur YouTube.
-
-> **Attention au plagiat :** L'utilisation de code provenant de bibliothèques tierces, d'autres étudiants ou d'une IA est interdite. L'inspiration est autorisée à condition de citer explicitement les sources.
+7. Démonstration : Vidéo de 10 minutes présentant les choix techniques et les résultats.
