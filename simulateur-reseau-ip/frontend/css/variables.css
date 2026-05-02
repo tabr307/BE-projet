@@ -1,0 +1,33 @@
+/**
+ * variables.css
+ * Centralisation du design system (couleurs, ombres, espacements).
+ */
+:root {
+    /* Couleurs de base */
+    --blanc: #ffffff;
+    --noir: #111827; /* Un noir légèrement adouci, plus moderne */
+    --bg-clair: #f9fafb;
+    --bg-gris: #f3f4f6;
+    
+    /* Couleurs d'accentuation et d'état */
+    --primaire: #111827;
+    --danger: #ef4444;      /* Rouge pour "Supprimer" */
+    --danger-hover: #dc2626;
+    
+    /* Couleurs spécifiques aux formulaires (Vu sur tes captures) */
+    --input-bg: #f4f4f2;    /* Le gris beige léger des champs de saisie */
+    --input-bordure: #d1d1cf;
+    
+    /* Couleurs de texte */
+    --texte-principal: #111827;
+    --texte-muet: #6b7280;
+    
+    /* Structure et Bordures */
+    --bordure: #e5e7eb;
+    --arrondi: 8px;         /* Pour une cohérence sur tous les boutons/cartes */
+    
+    /* Effets */
+    --ombre: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+    --ombre-lg: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
