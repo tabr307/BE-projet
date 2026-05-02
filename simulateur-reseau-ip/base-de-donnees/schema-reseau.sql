@@ -1,99 +1,144 @@
 -- ==============================================================================
 -- RÉINITIALISATION DU SCHÉMA (IDEMPOTENCE)
 -- ==============================================================================
-DROP TABLE IF EXISTS hote CASCADE;
-DROP TABLE IF EXISTS switch CASCADE;
-DROP TABLE IF EXISTS sous_reseau CASCADE;
-DROP TABLE IF EXISTS route_statique CASCADE;
-DROP TABLE IF EXISTS interface_routeur CASCADE;
-DROP TABLE IF EXISTS routeur CASCADE;
-DROP TABLE IF EXISTS scenario CASCADE;
+DROP TABLE IF EXISTS CABLER_INTERFACE_INTERFACE CASCADE;
+DROP TABLE IF EXISTS CABLER_INTERFACE_SWITCH CASCADE;
+DROP TABLE IF EXISTS CABLER_HOTE_SWITCH CASCADE;
+DROP TABLE IF EXISTS HOTE CASCADE;
+DROP TABLE IF EXISTS SWITCH CASCADE;
+DROP TABLE IF EXISTS RESEAU CASCADE;
+DROP TABLE IF EXISTS ROUTE_STATIQUE CASCADE;
+DROP TABLE IF EXISTS INTERFACE CASCADE;
+DROP TABLE IF EXISTS Routeur CASCADE;
+DROP TABLE IF EXISTS SCENARIO CASCADE;
+DROP TABLE IF EXISTS UTILISATEUR CASCADE;
 
 -- ==============================================================================
--- CRÉATION DES ENTITÉS ET CONTRAINTES D'INTÉGRITÉ
+-- CRÉATION DES ENTITÉS DE BASE
 -- ==============================================================================
 
--- Entité racine : Scénario
-CREATE TABLE scenario (
-    id SERIAL PRIMARY KEY,
-    nom VARCHAR(100) NOT NULL,
-    cree_le TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE UTILISATEUR (
+    id_user SERIAL PRIMARY KEY,
+    identifiant VARCHAR(50) UNIQUE NOT NULL,
+    mot_de_passe_hash VARCHAR(64) NOT NULL, 
+    role VARCHAR(50) DEFAULT 'classique' CHECK (role IN ('classique', 'admin'))
 );
 
--- Entité : Routeur
-CREATE TABLE routeur (
-    id SERIAL PRIMARY KEY,
-    scenario_id INT NOT NULL REFERENCES scenario(id) ON DELETE CASCADE,
+CREATE TABLE SCENARIO (
+    id_scenario SERIAL PRIMARY KEY,
+    id_user INT NOT NULL REFERENCES UTILISATEUR(id_user) ON DELETE CASCADE,
+    nom_scenario VARCHAR(50) NOT NULL,
+    description VARCHAR(255)
+);
+
+CREATE TABLE Routeur (
+    id_routeur SERIAL PRIMARY KEY,
+    id_scenario INT NOT NULL REFERENCES SCENARIO(id_scenario) ON DELETE CASCADE,
     nom VARCHAR(50) NOT NULL,
-    UNIQUE(scenario_id, nom)
+    pos_x DOUBLE PRECISION DEFAULT 0, 
+    pos_y DOUBLE PRECISION DEFAULT 0,
+    UNIQUE(id_scenario, nom)
 );
 
--- Entité : Interface Routeur (WBS 1.3 : Cascade depuis Routeur)
-CREATE TABLE interface_routeur (
-    id SERIAL PRIMARY KEY,
-    routeur_id INT NOT NULL REFERENCES routeur(id) ON DELETE CASCADE,
-    adresse_ip INET NOT NULL, -- WBS 1.2 : Type INET
-    masque CIDR NOT NULL,     -- WBS 1.2 : Type CIDR (valide nativement 0-32)
-    UNIQUE(routeur_id, adresse_ip)
+CREATE TABLE INTERFACE (
+    id_interface SERIAL PRIMARY KEY,
+    id_routeur INT NOT NULL REFERENCES Routeur(id_routeur) ON DELETE CASCADE,
+    adresse_ip INET NOT NULL, 
+    masque INT NOT NULL,    
+    nom VARCHAR(50) DEFAULT 'eth0',
+    UNIQUE(id_routeur, adresse_ip)
 );
 
--- Entité : Route Statique (WBS 1.3 : Cascade depuis Routeur)
-CREATE TABLE route_statique (
-    id SERIAL PRIMARY KEY,
-    routeur_id INT NOT NULL REFERENCES routeur(id) ON DELETE CASCADE,
-    reseau_cible CIDR NOT NULL,
-    prochain_saut INET NOT NULL
+CREATE TABLE ROUTE_STATIQUE (
+    id_route SERIAL PRIMARY KEY,
+    id_routeur INT NOT NULL REFERENCES Routeur(id_routeur) ON DELETE CASCADE,
+    reseau_dest INET NOT NULL,
+    masque_dest INT NOT NULL,
+    next_hop INET NOT NULL
 );
 
--- Entité : Sous-réseau
-CREATE TABLE sous_reseau (
-    id SERIAL PRIMARY KEY,
-    scenario_id INT NOT NULL REFERENCES scenario(id) ON DELETE CASCADE,
+CREATE TABLE RESEAU (
+    id_reseau SERIAL PRIMARY KEY,
+    id_scenario INT NOT NULL REFERENCES SCENARIO(id_scenario) ON DELETE CASCADE,
+    adresse_reseau INET NOT NULL,
+    masque INT NOT NULL,
+    label VARCHAR(50) NOT NULL,
+    UNIQUE(id_scenario, adresse_reseau)
+);
+
+CREATE TABLE SWITCH (
+    id_switch SERIAL PRIMARY KEY,
+    id_scenario INT NOT NULL REFERENCES SCENARIO(id_scenario) ON DELETE CASCADE,
     nom VARCHAR(50) NOT NULL,
-    bloc_cidr CIDR NOT NULL,
-    UNIQUE(scenario_id, bloc_cidr)
+    pos_x DOUBLE PRECISION DEFAULT 0,
+    pos_y DOUBLE PRECISION DEFAULT 0
 );
 
--- Entité : Switch
-CREATE TABLE switch (
-    id SERIAL PRIMARY KEY,
-    sous_reseau_id INT NOT NULL REFERENCES sous_reseau(id) ON DELETE CASCADE,
-    nom VARCHAR(50) NOT NULL
-);
-
--- Entité : Hôte
-CREATE TABLE hote (
-    id SERIAL PRIMARY KEY,
-    sous_reseau_id INT NOT NULL REFERENCES sous_reseau(id) ON DELETE CASCADE,
+CREATE TABLE HOTE (
+    id_hote SERIAL PRIMARY KEY,
+    id_reseau INT REFERENCES RESEAU(id_reseau) ON DELETE SET NULL,
+    id_scenario INT NOT NULL REFERENCES SCENARIO(id_scenario) ON DELETE CASCADE,
     nom VARCHAR(50) NOT NULL,
     adresse_ip INET NOT NULL,
-    passerelle_defaut INET,
-    UNIQUE(sous_reseau_id, adresse_ip)
+    passerelle_ip INET,
+    pos_x DOUBLE PRECISION DEFAULT 0,
+    pos_y DOUBLE PRECISION DEFAULT 0,
+    UNIQUE(id_scenario, adresse_ip)
 );
 
+-- ==============================================================================
+-- TABLES DE CÂBLAGE (LIAISONS PHYSIQUES)
+-- ==============================================================================
+
+-- Liaison entre un Hôte et un Switch
+CREATE TABLE CABLER_HOTE_SWITCH (
+    id_switch INT REFERENCES SWITCH(id_switch) ON DELETE CASCADE,
+    id_hote INT REFERENCES HOTE(id_hote) ON DELETE CASCADE,
+    PRIMARY KEY (id_switch, id_hote)
+);
+
+-- Liaison entre une Interface de Routeur et un Switch
+CREATE TABLE CABLER_INTERFACE_SWITCH (
+    id_interface INT REFERENCES INTERFACE(id_interface) ON DELETE CASCADE,
+    id_switch INT REFERENCES SWITCH(id_switch) ON DELETE CASCADE,
+    PRIMARY KEY (id_interface, id_switch)
+);
+
+-- Liaison directe entre deux Interfaces de Routeurs
+CREATE TABLE CABLER_INTERFACE_INTERFACE (
+    id_interface INT REFERENCES INTERFACE(id_interface) ON DELETE CASCADE,
+    id_interface_1 INT REFERENCES INTERFACE(id_interface) ON DELETE CASCADE,
+    PRIMARY KEY (id_interface, id_interface_1),
+    CONSTRAINT no_self_connect CHECK (id_interface <> id_interface_1)
+);
 
 -- ==============================================================================
--- WBS 1.2 : CONTRAINTES STRICTES INET/CIDR (RESTRICTION IPV4 ET MASQUE 0-32)
+-- CONTRAINTES STRICTES IPV4 ET MASQUES
 -- ==============================================================================
 
--- Entité : Interface Routeur
-ALTER TABLE interface_routeur 
+ALTER TABLE INTERFACE 
     ADD CONSTRAINT chk_interface_ipv4 CHECK (family(adresse_ip) = 4),
-    ADD CONSTRAINT chk_masque_ipv4 CHECK (family(masque) = 4),
-    ADD CONSTRAINT chk_masque_limite CHECK (masklen(masque) >= 0 AND masklen(masque) <= 32);
+    ADD CONSTRAINT chk_masque_limite CHECK (masque >= 0 AND masque <= 32);
 
--- Entité : Route Statique
-ALTER TABLE route_statique 
-    ADD CONSTRAINT chk_reseau_ipv4 CHECK (family(reseau_cible) = 4),
-    ADD CONSTRAINT chk_reseau_limite CHECK (masklen(reseau_cible) >= 0 AND masklen(reseau_cible) <= 32),
-    ADD CONSTRAINT chk_saut_ipv4 CHECK (family(prochain_saut) = 4);
+ALTER TABLE ROUTE_STATIQUE 
+    ADD CONSTRAINT chk_reseau_dest_ipv4 CHECK (family(reseau_dest) = 4),
+    ADD CONSTRAINT chk_masque_dest_limite CHECK (masque_dest >= 0 AND masque_dest <= 32),
+    ADD CONSTRAINT chk_saut_ipv4 CHECK (family(next_hop) = 4);
 
--- Entité : Sous-réseau
-ALTER TABLE sous_reseau 
-    ADD CONSTRAINT chk_bloc_ipv4 CHECK (family(bloc_cidr) = 4),
-    ADD CONSTRAINT chk_bloc_limite CHECK (masklen(bloc_cidr) >= 0 AND masklen(bloc_cidr) <= 32);
+ALTER TABLE RESEAU 
+    ADD CONSTRAINT chk_adresse_reseau_ipv4 CHECK (family(adresse_reseau) = 4),
+    ADD CONSTRAINT chk_masque_reseau_limite CHECK (masque >= 0 AND masque <= 32);
 
--- Entité : Hôte
-ALTER TABLE hote 
+ALTER TABLE HOTE 
     ADD CONSTRAINT chk_hote_ipv4 CHECK (family(adresse_ip) = 4),
-    ADD CONSTRAINT chk_passerelle_ipv4 CHECK (passerelle_defaut IS NULL OR family(passerelle_defaut) = 4);
+    ADD CONSTRAINT chk_passerelle_ipv4 CHECK (passerelle_ip IS NULL OR family(passerelle_ip) = 4);
+
+-- ==============================================================================
+-- INITIALISATION
+-- ==============================================================================
+INSERT INTO UTILISATEUR (identifiant, mot_de_passe_hash, role) 
+VALUES ('admin', '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918', 'admin');
+
+
+ALTER TABLE RESEAU ADD COLUMN pos_x DOUBLE PRECISION DEFAULT 0;
+ALTER TABLE RESEAU ADD COLUMN pos_y DOUBLE PRECISION DEFAULT 0;

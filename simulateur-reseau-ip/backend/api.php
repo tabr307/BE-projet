@@ -1,111 +1,229 @@
 <?php
-// backend/api.php
-header('Content-Type: application/json; charset=utf-8');
+/**
+ * backend/api.php
+ * Routage complet (Tableau de bord + Éditeur) avec gestion séparée Switchs/Réseaux et RENOMMAGE.
+ */
+session_start();
 
 require_once __DIR__ . '/noyau/BaseDeDonnees.php';
+require_once __DIR__ . '/noyau/GestionnaireAuth.php';
 require_once __DIR__ . '/modeles/Scenario.php';
+require_once __DIR__ . '/modeles/Utilisateur.php';
+
+$donnees = json_decode(file_get_contents('php://input'), true) ?? [];
+$action = trim($donnees['action'] ?? $_POST['action'] ?? $_GET['action'] ?? '');
+
+if (!$action) {
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['succes' => false, 'erreur' => 'Action manquante ou JSON invalide.']);
+    exit;
+}
 
 try {
     $pdo = BaseDeDonnees::obtenirInstance();
-    $modeleScenario = new Scenario($pdo);
-
-    // Extraction du flux JSON pour les méthodes POST/PUT/DELETE
-    $donneesEntrantes = json_decode(file_get_contents('php://input'), true) ?? [];
     
-    // Détection de l'action (Priorité au payload JSON, fallback sur GET)
-    $action = $donneesEntrantes['action'] ?? filter_input(INPUT_GET, 'action');
-
-    if (!$action) {
-        throw new InvalidArgumentException("Paramètre de routage 'action' manquant.");
+    // --- ACTIONS PUBLIQUES ---
+    if ($action === 'login') {
+        $u = $_POST['username'] ?? $donnees['username'] ?? '';
+        $p = $_POST['password'] ?? $donnees['password'] ?? '';
+        if (GestionnaireAuth::login($u, $p, $pdo)) header('Location: ../index.php?page=tableau-de-bord');
+        else header('Location: ../index.php?page=connexion&erreur=auth');
+        exit;
     }
 
-    $reponse = [];
+    if ($action === 'register') {
+        $u = $_POST['username'] ?? $donnees['username'] ?? '';
+        $p = $_POST['password'] ?? $donnees['password'] ?? '';
+        $mUser = new Utilisateur($pdo);
+        if (!$mUser->trouverParNom($u) && $mUser->inscrire($u, $p)) {
+            GestionnaireAuth::login($u, $p, $pdo);
+            header('Location: ../index.php?page=tableau-de-bord');
+        } else header('Location: ../index.php?page=connexion&erreur=reg');
+        exit;
+    }
 
-    // Routage conditionnel strict
+    if ($action === 'logout') {
+        session_destroy();
+        header('Location: ../index.php');
+        exit;
+    }
+
+    // --- SÉCURITÉ ---
+    $idUser = $_SESSION['utilisateur_id'] ?? null;
+    if (!$idUser) {
+        header('Content-Type: application/json; charset=utf-8');
+        http_response_code(403);
+        echo json_encode(['succes' => false, 'erreur' => 'Authentification requise.']);
+        exit;
+    }
+
+    $modele = new Scenario($pdo);
+    header('Content-Type: application/json; charset=utf-8');
+    $reponse = ["succes" => false];
+
     switch ($action) {
-        // ==============================================================================
-        // WBS 1.4.2 : ROUTEURS
-        // ==============================================================================
-        case 'creer_routeur':
-            $reponse = ['id' => $modeleScenario->creerRouteur($donneesEntrantes['scenario_id'], $donneesEntrantes['nom'])];
-            break;
-        case 'lire_routeurs':
-            $scenario_id = filter_input(INPUT_GET, 'scenario_id', FILTER_VALIDATE_INT);
-            $reponse = $modeleScenario->lireRouteurs($scenario_id);
-            break;
-        case 'mettre_a_jour_routeur':
-            $reponse = ['succes' => $modeleScenario->mettreAJourRouteur($donneesEntrantes['id'], $donneesEntrantes['nom'])];
-            break;
-        case 'supprimer_routeur':
-            $reponse = ['succes' => $modeleScenario->supprimerRouteur($donneesEntrantes['id'])];
+        // --- GESTION DU TABLEAU DE BORD ---
+        case 'lire_scenarios':
+            $reponse = $modele->lireScenariosParUtilisateur($idUser);
             break;
 
-        // ==============================================================================
-        // WBS 1.4.3 : SWITCHS
-        // ==============================================================================
-        case 'creer_switch':
-            $reponse = ['id' => $modeleScenario->creerSwitch($donneesEntrantes['sous_reseau_id'], $donneesEntrantes['nom'])];
-            break;
-        case 'lire_switchs':
-            $sous_reseau_id = filter_input(INPUT_GET, 'sous_reseau_id', FILTER_VALIDATE_INT);
-            $reponse = $modeleScenario->lireSwitchs($sous_reseau_id);
-            break;
-        case 'mettre_a_jour_switch':
-            $reponse = ['succes' => $modeleScenario->mettreAJourSwitch($donneesEntrantes['id'], $donneesEntrantes['nom'])];
-            break;
-        case 'supprimer_switch':
-            $reponse = ['succes' => $modeleScenario->supprimerSwitch($donneesEntrantes['id'])];
+        case 'creer_scenario':
+            $nom = $donnees['nom'] ?? 'Nouveau scénario';
+            $id = $modele->creerScenario($idUser, $nom);
+            $reponse = ["id" => $id, "succes" => true];
             break;
 
-        // ==============================================================================
-        // WBS 1.4.4 : SOUS-RÉSEAUX
-        // ==============================================================================
-        case 'creer_sous_reseau':
-            $reponse = ['id' => $modeleScenario->creerSousReseau($donneesEntrantes['scenario_id'], $donneesEntrantes['nom'], $donneesEntrantes['bloc_cidr'])];
-            break;
-        case 'lire_sous_reseaux':
-            $scenario_id = filter_input(INPUT_GET, 'scenario_id', FILTER_VALIDATE_INT);
-            $reponse = $modeleScenario->lireSousReseaux($scenario_id);
-            break;
-        case 'mettre_a_jour_sous_reseau':
-            $reponse = ['succes' => $modeleScenario->mettreAJourSousReseau($donneesEntrantes['id'], $donneesEntrantes['nom'], $donneesEntrantes['bloc_cidr'])];
-            break;
-        case 'supprimer_sous_reseau':
-            $reponse = ['succes' => $modeleScenario->supprimerSousReseau($donneesEntrantes['id'])];
+        case 'supprimer_scenario':
+            $id = (int)($donnees['id'] ?? 0);
+            $reponse = ["succes" => $modele->supprimerScenario($id, $idUser)];
             break;
 
-        // ==============================================================================
-        // WBS 1.4.5 : HÔTES
-        // ==============================================================================
-        case 'creer_hote':
-            $reponse = ['id' => $modeleScenario->creerHote($donneesEntrantes['sous_reseau_id'], $donneesEntrantes['nom'], $donneesEntrantes['adresse_ip'], $donneesEntrantes['passerelle_defaut'] ?? null)];
-            break;
-        case 'lire_hotes':
-            $sous_reseau_id = filter_input(INPUT_GET, 'sous_reseau_id', FILTER_VALIDATE_INT);
-            $reponse = $modeleScenario->lireHotes($sous_reseau_id);
-            break;
-        case 'mettre_a_jour_hote':
-            $reponse = ['succes' => $modeleScenario->mettreAJourHote($donneesEntrantes['id'], $donneesEntrantes['nom'], $donneesEntrantes['adresse_ip'], $donneesEntrantes['passerelle_defaut'] ?? null)];
-            break;
-        case 'supprimer_hote':
-            $reponse = ['succes' => $modeleScenario->supprimerHote($donneesEntrantes['id'])];
+        // --- GESTION DE L'ÉDITEUR DE TOPOLOGIE ---
+        case 'charger_scenario':
+            $sid = (int)($donnees['id'] ?? $_GET['id'] ?? 0);
+            $s = $modele->obtenirScenario($sid, $idUser);
+            if ($s) {
+                $s['routeurs'] = $modele->lireRouteurs($sid);
+                $s['switchs'] = $modele->lireSwitchsParScenario($sid);
+                $s['reseaux'] = $modele->lireSousReseaux($sid); 
+                $s['hotes'] = $modele->lireHotesParScenario($sid);
+                $s['liaisons_hs'] = $modele->lireLiaisonsHoteSwitch($sid);
+                $s['liaisons_is'] = $modele->lireLiaisonsInterfaceSwitch($sid);
+                $reponse = $s;
+            } else {
+                $reponse = ["succes" => false, "erreur" => "Scénario introuvable."];
+            }
             break;
 
-        // ==============================================================================
-        // FALLBACK
-        // ==============================================================================
+        case 'creer_equipement':
+            $sid = (int)$donnees['scenario_id'];
+            $type = $donnees['type'];
+            $nom = $donnees['nom'];
+            
+            if ($type === 'routeurs') {
+                $id = $modele->creerRouteur($sid, $nom);
+            } elseif ($type === 'reseaux') {
+                $id = $modele->creerSousReseau($sid, $nom, "10.0.0.0/24");
+            } else {
+                $sr = $modele->lireSousReseaux($sid);
+                $srid = empty($sr) ? $modele->creerSousReseau($sid, "LAN_Defaut", "10.0.0.0/24") : $sr[0]['id'];
+                $ipAlea = "192.168.1." . rand(10, 250);
+                $id = ($type === 'switchs') ? $modele->creerSwitch($srid, $nom) : $modele->creerHote($srid, $nom, $ipAlea);
+            }
+            $reponse = ["id" => $id, "succes" => true];
+            break;
+
+        // --- NOUVEAU : GESTION DU RENOMMAGE ---
+        case 'renommer_equipement':
+            $type = $donnees['type'] ?? '';
+            $id = (int)($donnees['id'] ?? 0);
+            $nouveauNom = $donnees['nom'] ?? '';
+
+            if ($id > 0 && !empty($nouveauNom)) {
+                $reponse = ["succes" => $modele->renommerEquipement($type, $id, $nouveauNom)];
+            } else {
+                $reponse = ["succes" => false, "erreur" => "Données invalides pour le renommage."];
+            }
+            break;
+
+        case 'mettre_a_jour_positions':
+            $p = explode('_', $donnees['id']);
+            if (count($p) === 2) {
+                $typeEquipement = ($p[0] === 'reseaux') ? 'sous_reseau' : $p[0];
+                $reponse = ["succes" => $modele->mettreAJourPositions($typeEquipement, (int)$p[1], (int)$donnees['x'], (int)$donnees['y'])];
+            }
+            break;
+
+        case 'supprimer_equipement':
+            $p = explode('_', $donnees['id']);
+            if (count($p) === 2) {
+                if ($p[0] === 'routeurs') $table = 'routeur';
+                elseif ($p[0] === 'reseaux') $table = 'sous_reseau';
+                else $table = substr($p[0], 0, -1);
+                
+                $reponse = ["succes" => $modele->supprimerEquipement($table, (int)$p[1])];
+            }
+            break;
+
+        case 'supprimer_liaison':
+            $p = explode('_', $donnees['id']);
+            $ok = false;
+            if (isset($p[0])) {
+                if ($p[0] === 'lhs' && count($p) === 3) $ok = $modele->supprimerLiaisonHoteSwitch((int)$p[1], (int)$p[2]);
+                elseif ($p[0] === 'lis' && count($p) === 3) $ok = $modele->supprimerLiaisonInterfaceSwitch((int)$p[1], (int)$p[2]);
+            }
+            $reponse = $ok ? ["succes" => true] : ["succes" => false, "erreur" => "Impossible de supprimer cette liaison."];
+            break;
+
+        case 'creer_liaison':
+            $f = explode('_', $donnees['from']);
+            $t = explode('_', $donnees['to']);
+            $ok = false;
+            $erreur_msg = "";
+
+            $t1 = $f[0] ?? ''; $id1 = (int)($f[1] ?? 0);
+            $t2 = $t[0] ?? ''; $id2 = (int)($t[1] ?? 0);
+
+            try {
+                if (($t1 === 'hotes' && $t2 === 'switchs') || ($t1 === 'switchs' && $t2 === 'hotes')) {
+                    $hoteId = ($t1 === 'hotes' ? $id1 : $id2);
+                    $switchId = ($t1 === 'switchs' ? $id1 : $id2);
+                    $ok = $modele->creerLiaisonHoteSwitch($hoteId, $switchId);
+                    if (!$ok) $erreur_msg = "Rejeté par la BDD (Liaison Hôte-Switch probablement déjà existante).";
+                
+                } elseif (($t1 === 'routeurs' && $t2 === 'switchs') || ($t1 === 'switchs' && $t2 === 'routeurs')) {
+                    $routeurId = ($t1 === 'routeurs' ? $id1 : $id2);
+                    $switchId = ($t1 === 'switchs' ? $id1 : $id2);
+                    $intId = $modele->obtenirInterfaceLibre($routeurId);
+                    $ok = $modele->creerLiaisonInterfaceSwitch($intId, $switchId);
+                    if (!$ok) $erreur_msg = "Rejeté par la BDD (Liaison Routeur-Switch).";
+                
+                } else {
+                    $erreur_msg = "Liaison interdite ($t1 ↔ $t2). Seules Hôte-Switch et Routeur-Switch sont autorisées.";
+                }
+            } catch (Exception $e) {
+                $erreur_msg = "Erreur SQL : " . $e->getMessage();
+            }
+
+            $reponse = $ok ? ["succes" => true] : ["succes" => false, "erreur" => $erreur_msg];
+            break;
+
+        // --- GESTION DES INTERFACES DE ROUTEURS ---
+        case 'lire_interfaces_routeur':
+            $rid = (int)($donnees['id_routeur'] ?? 0);
+            $reponse = ["succes" => true, "interfaces" => $modele->lireInterfacesRouteur($rid)];
+            break;
+
+        case 'creer_interface_routeur':
+            $rid = (int)($donnees['id_routeur'] ?? 0);
+            $ip = $donnees['ip'] ?? '';
+            $masque = (int)($donnees['masque'] ?? 24);
+            $nom = $donnees['nom'] ?? '';
+            
+            if ($rid > 0 && !empty($ip) && !empty($nom)) {
+                $idInt = $modele->creerInterfaceRouteur($rid, $ip, $masque, $nom);
+                if ($idInt > 0) {
+                    $reponse = ["succes" => true, "id" => $idInt];
+                } else {
+                    $reponse = ["succes" => false, "erreur" => "IP invalide ou déjà utilisée sur ce routeur."];
+                }
+            } else {
+                $reponse = ["succes" => false, "erreur" => "Veuillez remplir tous les champs."];
+            }
+            break;
+
+        case 'supprimer_interface':
+            $idInt = (int)($donnees['id_interface'] ?? 0);
+            $reponse = ["succes" => $modele->supprimerInterfaceRouteur($idInt)];
+            break;
+
         default:
-            http_response_code(400);
-            throw new OutOfBoundsException("Vecteur d'action non reconnu par le routeur : {$action}");
+            $reponse = ["succes" => false, "erreur" => "Action non reconnue : [" . htmlspecialchars($action) . "]"];
+            break;
     }
 
-    echo json_encode($reponse, JSON_THROW_ON_ERROR);
+    echo json_encode($reponse);
 
-} catch (InvalidArgumentException | OutOfBoundsException $e) {
-    http_response_code(400);
-    echo json_encode(['erreur' => $e->getMessage()]);
 } catch (Exception $e) {
-    http_response_code(500);
-    error_log("Erreur API Globale : " . $e->getMessage()); // Journalisation interne
-    echo json_encode(['erreur' => 'Erreur critique du serveur API. Vérifiez les logs.']);
+    echo json_encode(["succes" => false, "erreur" => "Exception API : " . $e->getMessage()]);
 }

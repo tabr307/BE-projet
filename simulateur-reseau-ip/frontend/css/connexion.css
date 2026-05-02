@@ -1,0 +1,30 @@
+.auth-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--bordure);
+    margin-bottom: 2rem;
+}
+
+.tab-btn {
+    flex: 1;
+    background: none;
+    border: none;
+    padding: 1rem;
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--texte-muet);
+    transition: all 0.3s;
+}
+
+.tab-btn.active {
+    color: var(--noir);
+    border-bottom: 2px solid var(--noir);
+}
+
+.auth-form.hidden { display: none; }
+
+.form-group input {
+    background-color: #f4f4f2; /* Gris léger comme sur la capture */
+    border: 1px solid #d1d1cf;
+}
+
+.full-width { width: 100%; margin-top: 1rem; }
