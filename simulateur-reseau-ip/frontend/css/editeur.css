@@ -1,354 +1,487 @@
-/**
- * editeur.css
- * Mise en page épurée conforme à la maquette
- */
+/* =============================================================================
+   STYLES : editeur.css — Thème clair professionnel
+   ============================================================================= */
 
-:root {
-    --bg-gris-clair: #f9fafb;
-    --bordure-douce: #e5e7eb;
-    --texte-titre: #111827;
-}
-
-/* ==========================================================================
-   1. STRUCTURE GLOBALE ET EN-TÊTE
-   ========================================================================== */
-
-/* Ajuste la hauteur pour prendre en compte tes DEUX en-têtes (Site + Éditeur) */
+/* =============================================================================
+   LAYOUT PRINCIPAL
+   ============================================================================= */
 .editeur-layout {
     display: flex;
-    height: calc(100vh - 125px); /* Ajustement pour éviter le débordement bas */
-    background-color: white;
-    border-top: 1px solid var(--bordure-douce);
+    height: calc(100vh - 56px - 37px); /* entête 56px + pied 37px */
+    overflow: hidden;
+    position: relative;
 }
 
-.editeur-top-bar {
+/* =============================================================================
+   BARRE D'OUTILS GAUCHE
+   ============================================================================= */
+.barre-outils {
+    width: 190px;
+    flex-shrink: 0;
+    background: var(--couleur-fond-2);
+    border-right: 1px solid var(--couleur-bordure);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    padding: 0.75rem 0.5rem;
+}
+.barre-outils-section {
+    padding-bottom: 0.75rem;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid var(--couleur-bordure);
+}
+.barre-outils-section:last-child { border-bottom: none; margin-top: auto; padding-bottom: 0; }
+.barre-outils-titre {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--couleur-texte-3);
+    margin-bottom: 0.4rem;
+    padding: 0 0.25rem;
+}
+.outil-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    width: 100%;
+    background: none;
+    border: 1px solid transparent;
+    border-radius: var(--rayon);
+    color: var(--couleur-texte-2);
+    cursor: pointer;
+    font-family: var(--police-corps);
+    font-size: 0.83rem;
+    font-weight: 500;
+    padding: 0.45rem 0.55rem;
+    text-align: left;
+    transition: all var(--transition);
+    margin-bottom: 0.15rem;
+}
+.outil-btn:hover { background: var(--couleur-fond-4); border-color: var(--couleur-bordure); color: var(--couleur-texte); transform: translateX(2px); }
+.outil-btn:active { transform: scale(0.97); }
+.outil-icone { font-size: 1rem; flex-shrink: 0; }
+
+/* Badge "+" aligné à droite dans chaque bouton outil */
+.outil-plus {
+    margin-left: auto;        /* pousse à droite */
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--couleur-accent);
+    opacity: 0.6;
+    line-height: 1;
+    transition: opacity var(--transition), transform var(--transition);
+}
+.outil-btn:hover .outil-plus {
+    opacity: 1;
+    transform: scale(1.2);
+}
+
+/* Bouton Câbler mis en évidence */
+.outil-btn-cable {
+    background: rgba(37,99,235,0.06);
+    border-color: rgba(37,99,235,0.2);
+    color: var(--couleur-accent);
+    font-weight: 600;
+    margin-top: 0.25rem;
+}
+.outil-btn-cable:hover { background: rgba(37,99,235,0.12) !important; border-color: var(--couleur-accent) !important; color: var(--couleur-accent) !important; }
+
+.barre-outils .champ-groupe { margin-bottom: 0.45rem; }
+.barre-outils .champ-label  { font-size: 0.71rem; color: var(--couleur-texte-3); font-weight: 600; }
+.barre-outils .champ-input  { font-size: 0.8rem; padding: 0.35rem 0.5rem; }
+
+/* Texte d'aide sous un champ */
+.champ-aide {
+    font-size: 0.72rem;
+    color: var(--couleur-texte-3);
+    margin-top: 0.25rem;
+    display: block;
+    font-style: italic;
+}
+
+/* =============================================================================
+   CANEVAS CENTRAL — vis.js
+   ============================================================================= */
+.editeur-centre {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: #FAFBFD;
+    min-height: 0;
+}
+/* Grille décorative */
+.editeur-centre::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(rgba(37,99,235,0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(37,99,235,0.05) 1px, transparent 1px);
+    background-size: 32px 32px;
+    pointer-events: none;
+    z-index: 0;
+}
+#canevas-topologie {
+    width:  100% !important;
+    height: 100% !important;
+    display: block;
+    position: relative;
+    z-index: 1;
+}
+
+/* Légende */
+.legende {
+    position: absolute;
+    bottom: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 0.875rem;
+    background: var(--couleur-fond);
+    border: 1px solid var(--couleur-bordure);
+    border-radius: 100px;
+    padding: 0.35rem 1rem;
+    font-size: 0.73rem;
+    color: var(--couleur-texte-2);
+    font-weight: 500;
+    box-shadow: var(--ombre-sm);
+    flex-wrap: wrap;
+    justify-content: center;
+    z-index: 10;
+    pointer-events: none;
+}
+.legende-item    { display: flex; align-items: center; gap: 0.35rem; white-space: nowrap; }
+.legende-couleur { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
+/* =============================================================================
+   PANNEAU LATÉRAL DROIT : Propriétés
+   ============================================================================= */
+.panneau-proprietes {
+    width: 280px;
+    flex-shrink: 0;
+    background: var(--couleur-fond);
+    border-left: 1px solid var(--couleur-bordure);
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.22s cubic-bezier(0.4,0,0.2,1);
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 50;
+    box-shadow: var(--ombre-lg);
+}
+.panneau-proprietes.ouvert { transform: translateX(0); }
+
+.panneau-entete {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.875rem 1rem;
+    border-bottom: 1px solid var(--couleur-bordure);
+    flex-shrink: 0;
+    background: var(--couleur-fond-2);
+}
+.panneau-titre {
+    font-family: var(--police-titre);
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--couleur-texte);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.panneau-fermer {
+    background: none; border: none; color: var(--couleur-texte-3); cursor: pointer;
+    font-size: 1.1rem; width: 24px; height: 24px; display: flex; align-items: center;
+    justify-content: center; border-radius: var(--rayon); flex-shrink: 0;
+    transition: color var(--transition), background var(--transition);
+}
+.panneau-fermer:hover { color: var(--couleur-texte); background: var(--couleur-fond-3); }
+.panneau-corps { flex: 1; overflow-y: auto; padding: 0.875rem; }
+.panneau-vide  { color: var(--couleur-texte-3); font-size: 0.83rem; text-align: center; padding: 2rem 1rem; font-style: italic; }
+
+/* Sections propriétés */
+.prop-section       { margin-bottom: 1.1rem; }
+.prop-section-titre {
+    font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.09em; color: var(--couleur-texte-3);
+    margin-bottom: 0.45rem; padding-bottom: 0.35rem;
+    border-bottom: 1px solid var(--couleur-bordure);
+}
+.prop-tableau { width: 100%; font-size: 0.81rem; border-collapse: collapse; }
+.prop-tableau tr td:first-child { color: var(--couleur-texte-3); padding: 0.28rem 0; width: 42%; vertical-align: top; font-weight: 500; }
+.prop-tableau tr td:last-child  { color: var(--couleur-texte); padding: 0.28rem 0; font-weight: 600; word-break: break-all; }
+.badge-actif     { color: var(--couleur-accent-2); font-weight: 700; }
+.badge-desactive { color: var(--couleur-texte-3); }
+
+.liste-interfaces { list-style: none; display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.4rem; }
+.interface-item { background: var(--couleur-fond-3); border: 1px solid var(--couleur-bordure); border-radius: var(--rayon); padding: 0.45rem 0.6rem; font-size: 0.79rem; }
+.interface-item-nom { color: var(--couleur-texte); font-weight: 700; margin-bottom: 0.1rem; }
+.interface-item-ip  { color: var(--couleur-accent); font-size: 0.74rem; font-weight: 500; }
+.interface-actions  { display: flex; gap: 0.25rem; margin-top: 0.3rem; }
+
+.liste-routes { list-style: none; display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 0.4rem; }
+.route-item { background: var(--couleur-fond-3); border-radius: var(--rayon); padding: 0.4rem 0.55rem; font-size: 0.77rem; display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; border: 1px solid var(--couleur-bordure); }
+.route-dest { color: var(--couleur-texte); font-weight: 700; }
+.route-hop  { color: var(--couleur-texte-3); font-size: 0.71rem; }
+
+/* Liste câbles dans panneau switch */
+.liste-cables { list-style: none; display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 0.4rem; }
+.cable-item {
+    background: var(--couleur-fond-3);
+    border: 1px solid var(--couleur-bordure);
+    border-radius: var(--rayon);
+    padding: 0.4rem 0.55rem;
+    font-size: 0.78rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.75rem 1.5rem;
-    background: #fff;
-    border-bottom: 1px solid var(--bordure-douce);
-    height: 60px;
+    gap: 0.4rem;
 }
+.cable-info { display: flex; flex-direction: column; gap: 0.08rem; min-width: 0; }
+.cable-icone { font-size: 0.75rem; }
+.cable-nom { color: var(--couleur-texte); font-weight: 600; font-size: 0.78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cable-ip  { color: var(--couleur-accent); font-size: 0.7rem; font-weight: 500; }
 
-.breadcrumb {
-    font-size: 0.85rem;
-    color: #6b7280;
-}
-
-.breadcrumb .separateur {
-    margin: 0 0.5rem;
-    color: #d1d5db;
-}
-
-.breadcrumb strong {
-    color: var(--texte-titre);
-    font-weight: 600;
-}
-
-.actions-utilisateur {
-    display: flex;
-    align-items: center;
-    gap: 1.5rem;
-}
-
-.btn-simuler {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.4rem 1rem;
-    border: 1px solid #000;
-    background: #fff;
-    border-radius: 4px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: 0.2s;
-}
-
-.btn-simuler:hover {
-    background: #000;
-    color: #fff;
-}
-
-/* ==========================================================================
-   2. BARRE LATÉRALE (SIDEBAR)
-   ========================================================================== */
-
-.sidebar-config {
-    width: 320px;
-    border-right: 1px solid var(--bordure-douce);
+/* =============================================================================
+   PANNEAU SIMULATION
+   ============================================================================= */
+.panneau-simulation {
+    position: fixed;
+    bottom: 37px;
+    left: 190px;
+    right: 0;
+    height: 240px;
+    background: var(--couleur-fond);
+    border-top: 2px solid var(--couleur-accent);
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.10);
+    z-index: 60;
     display: flex;
     flex-direction: column;
 }
-
-/* Onglets (Style Maquette : soulignement noir) */
-.tabs-equipements {
-    display: flex;
-    border-bottom: 1px solid var(--bordure-douce);
-    padding: 0 1rem;
-}
-
-.tabs-equipements .tab-btn {
-    padding: 0.75rem 0.5rem;
-    font-size: 0.8rem;
-    font-weight: 500;
-    color: #6b7280;
-    border-bottom: 2px solid transparent;
-    background: none;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.tabs-equipements .tab-btn.active {
-    color: black;
-    border-bottom-color: black;
-}
-
-/* Zone d'ajout (Bouton pointillé) */
-.zone-action-ajout {
-    padding: 1rem;
-}
-
-.btn-ajouter-dashed {
-    width: 100%;
-    padding: 0.75rem;
-    border: 2px dashed #d1d5db;
-    background: transparent;
-    border-radius: 6px;
-    color: #4b5563;
-    font-size: 0.85rem;
-    cursor: pointer;
-    transition: border-color 0.2s;
-}
-
-.btn-ajouter-dashed:hover {
-    border-color: #9ca3af;
-    background: #f9fafb;
-}
-
-/* ==========================================================================
-   3. INVENTAIRE (Cartes d'équipement)
-   ========================================================================== */
-
-.liste-objets {
-    flex: 1;
-    overflow-y: auto;
-    padding: 1rem;
-    background-color: white;
-}
-
-.carte-objet {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.8rem;
-    border: 1px solid var(--bordure-douce);
-    border-radius: 6px;
-    margin-bottom: 0.75rem;
-}
-
-.info-objet strong {
-    display: block;
-    font-size: 0.9rem;
-    color: var(--texte-titre);
-}
-
-.info-objet small {
-    font-size: 0.75rem;
-    color: #9ca3af;
-}
-
-.actions-objet {
-    display: flex;
-    gap: 0.4rem;
-}
-
-.btn-action-mini {
-    padding: 0.2rem 0.5rem;
-    border: 1px solid var(--bordure-douce);
-    border-radius: 4px;
-    background: white;
-    font-size: 0.7rem;
-    cursor: pointer;
-}
-
-.btn-action-mini:hover {
-    background: var(--bg-gris-clair);
-}
-
-/* ==========================================================================
-   4. CANEVAS VIS.JS ET LÉGENDE
-   ========================================================================== */
-
-.zone-dessin {
-    flex: 1;
-    background-color: #fafafa;
-    position: relative;
-    /* Optionnel : fond texturé très discret */
-    /* background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
-       background-size: 20px 20px; */
-}
-
-#network-canvas {
-    width: 100%;
-    height: 100%;
-}
-
-/* Légende flottante (Fix appliqué) */
-.legende-canvas {
-    position: absolute;
-    bottom: 1.5rem;
-    right: 1.5rem;
-    background: white;
+.simulation-entete {
+    display: flex; align-items: center; justify-content: space-between;
     padding: 0.5rem 1rem;
-    border: 1px solid var(--bordure-douce);
-    border-radius: 8px;
+    border-bottom: 1px solid var(--couleur-bordure);
+    flex-shrink: 0;
+    background: var(--couleur-fond-2);
+}
+.simulation-entete h3 { font-family: var(--police-titre); font-size: 0.85rem; font-weight: 700; color: var(--couleur-texte); }
+.simulation-corps {
+    flex: 1;
+    overflow-x: auto;
+    overflow-y: hidden;
     display: flex;
-    align-items: center;
-    gap: 1rem;
-    font-size: 0.75rem;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-    z-index: 10;
+    align-items: flex-start; /* CORRECTION : flex-start pour éviter que les cartes s'étirent */
+    padding: 0.75rem 1rem;
+    gap: 0;
 }
 
-.legende-canvas .item {
+/* Cartes de saut */
+.saut-carte {
+    flex-shrink: 0;
+    width: 195px;
+    background: var(--couleur-fond-2);
+    border: 1px solid var(--couleur-bordure);
+    border-radius: var(--rayon);
+    padding: 0.6rem 0.75rem;
+    font-size: 0.77rem;
     display: flex;
-    align-items: center;
-    color: #374151;
+    flex-direction: column;
+    gap: 0.18rem;
+    animation: saut-apparition 0.22s ease both;
+    position: relative;
+    /* CORRECTION : hauteur auto pour éviter que Src soit hors cadre */
+    height: auto;
+    overflow: visible;
 }
-
-/* Symboles géométriques de la légende */
-.symbole {
-    display: inline-block;
-    width: 16px;
-    height: 12px;
-    border: 1px solid #9ca3af;
-    background-color: #ffffff;
-    margin-right: 6px;
+@keyframes saut-apparition { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: translateX(0); } }
+.saut-carte:not(:last-child)::after {
+    content: '→';
+    position: absolute;
+    right: -18px;
+    top: 30px; /* Ancré en haut, pas au milieu */
+    color: var(--couleur-texte-3);
+    font-size: 1rem;
 }
+.saut-carte + .saut-carte { margin-left: 22px; }
+.saut-carte.saut-routeur  { border-left: 3px solid var(--couleur-accent); }
+.saut-carte.saut-hote     { border-left: 3px solid var(--couleur-accent-2); }
+.saut-carte.saut-erreur   { border-left: 3px solid var(--couleur-danger); background: rgba(220,38,38,0.04); }
 
-.symbole.rect { border-radius: 0; }
-.symbole.cercle { border-radius: 50px; width: 16px; height: 16px; }
-.symbole.rect-arrondi { border-radius: 4px; height: 14px; }
+.saut-type { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--couleur-texte-3); font-weight: 600; }
+.saut-nom  { font-weight: 700; color: var(--couleur-texte); font-size: 0.85rem; }
+.saut-ip   { color: var(--couleur-accent); font-size: 0.77rem; font-weight: 500; }
 
-
-
-
-/* --- MODAL EDITION DESIGN CLAIR (BLANC) --- */
-.modal-overlay {
-    position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0, 0, 0, 0.4); /* Fond semi-transparent adouci */
+/* En-tête IP — CORRECTION : word-break pour éviter débordement */
+.saut-entete-ip {
+    margin-top: 0.35rem;
+    padding-top: 0.35rem;
+    border-top: 1px solid var(--couleur-bordure);
     display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
+    flex-direction: column;
+    gap: 0.13rem;
 }
-.modal-overlay.hidden { display: none; }
-
-.modal-content {
-    background: #ffffff; /* Fond blanc pur */
-    width: 400px;
-    border-radius: 8px;
-    border: 1px solid #e5e7eb; /* Bordure gris très clair */
-    box-shadow: 0 10px 25px rgba(0,0,0,0.1); /* Ombre douce pour faire ressortir la fenêtre */
-    color: #1f2937; /* Texte gris foncé pour une bonne lisibilité */
-    font-family: system-ui, sans-serif;
-}
-
-.modal-header {
+.ip-champ {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    padding: 16px 20px;
-    border-bottom: 1px solid #e5e7eb;
+    font-size: 0.71rem;
+    gap: 0.25rem; /* espace minimum entre label et valeur */
 }
-.modal-header h3 { margin: 0; font-size: 16px; font-weight: 600; color: #111827; }
-.btn-close { background: none; border: none; color: #9ca3af; font-size: 20px; cursor: pointer; transition: color 0.2s; }
-.btn-close:hover { color: #1f2937; }
-
-.modal-body { padding: 20px; }
-
-/* Même si la classe s'appelle 'dark-input' dans ton HTML, on la style en clair ici ! */
-.dark-input {
-    width: 100%;
-    background: #ffffff;
-    border: 1px solid #d1d5db; /* Bordure grise standard */
-    color: #1f2937;
-    padding: 10px 12px;
-    border-radius: 6px;
-    font-size: 14px;
-    box-sizing: border-box;
-    transition: border-color 0.2s, box-shadow 0.2s;
-}
-.dark-input:focus { 
-    border-color: #3b82f6; 
-    outline: none; 
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); /* Petit halo bleu moderne au clic */
-}
-
-.mb-1 { margin-bottom: 4px; }
-.mb-2 { margin-bottom: 8px; }
-.mb-3 { margin-bottom: 12px; }
-.block { display: block; }
-.texte-muet { color: #6b7280; } /* Gris intermédiaire */
-.text-sm { font-size: 13px; }
-
-.modal-divider { border: 0; border-top: 1px solid #e5e7eb; margin: 20px 0; }
-
-.btn-text-blue {
-    background: none; border: none;
-    color: #3b82f6;
-    font-size: 14px;
-    cursor: pointer;
-    padding: 0;
-    display: flex; align-items: center; gap: 6px;
+.ip-champ-nom {
+    color: var(--couleur-texte-3);
     font-weight: 500;
+    flex-shrink: 0; /* le label ne rétrécit pas */
 }
-.btn-text-blue:hover { color: #2563eb; }
-
-.form-sous-section {
-    margin-top: 12px;
-    padding: 12px;
-    background: #f9fafb; /* Fond gris très clair pour détacher le formulaire */
-    border-radius: 6px;
-    border: 1px dashed #d1d5db; /* Bordure en pointillés */
-}
-
-.btn-outline {
-    background: #ffffff;
-    border: 1px solid #d1d5db;
-    color: #374151;
-    padding: 8px;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background 0.2s, border-color 0.2s;
+.ip-champ-val {
+    color: var(--couleur-texte-2);
     font-weight: 500;
+    text-align: right;
+    /* CORRECTION BUG Src hors cadre : word-break et min-width 0 */
+    word-break: break-all;
+    min-width: 0;
+    overflow-wrap: break-word;
+    font-family: var(--police-mono);
+    font-size: 0.69rem;
 }
-.btn-outline:hover { background: #f3f4f6; border-color: #9ca3af; }
-.full-width { width: 100%; }
+/* TTL et checksum en orange (spec) */
+.ip-champ-modifie .ip-champ-val { color: var(--couleur-warning); font-weight: 700; }
 
-.modal-footer {
+.saut-message { font-size: 0.69rem; color: var(--couleur-texte-3); margin-top: 0.3rem; font-style: italic; line-height: 1.4; }
+
+.simulation-resultat {
+    flex-shrink: 0;
     display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    padding: 16px 20px;
-    gap: 12px;
-    background: #f9fafb; /* Léger fond pour le bas de la fenêtre */
-    border-top: 1px solid #e5e7eb;
-    border-bottom-left-radius: 8px;
-    border-bottom-right-radius: 8px;
+    align-items: flex-start; /* aligner en haut comme les cartes */
+    padding: 0.6rem 1.25rem;
+    padding-top: 0.75rem;
+    margin-left: 16px;
+    gap: 0.5rem;
+    font-size: 0.88rem;
+    font-weight: 700;
+    white-space: normal; /* permettre retour à la ligne si besoin */
+    max-width: 200px;
 }
-.btn-text { background: none; border: none; color: #4b5563; cursor: pointer; padding: 8px 12px; font-weight: 500; }
-.btn-text:hover { color: #111827; }
-.btn-primary {
-    background: #3b82f6;
-    color: #ffffff;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 6px;
+.simulation-resultat.succes { color: var(--couleur-accent-2); }
+.simulation-resultat.echec  { color: var(--couleur-danger); }
+
+/* =============================================================================
+   TOAST NOTIFICATIONS
+   ============================================================================= */
+.notif-toast {
+    position: fixed;
+    top: 68px;
+    right: 1.25rem;
+    z-index: 9999;
+    max-width: 320px;
+    padding: 0.65rem 1rem;
+    border-radius: var(--rayon);
+    font-size: 0.85rem;
+    font-family: var(--police-corps);
     font-weight: 500;
-    cursor: pointer;
-    transition: background 0.2s;
+    box-shadow: var(--ombre-lg);
+    opacity: 0;
+    transform: translateX(20px);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    pointer-events: none;
 }
-.btn-primary:hover { background: #2563eb; }
+.notif-visible { opacity: 1; transform: translateX(0); }
+.notif-succes  { background: rgba(22,163,74,0.08);  color: var(--couleur-accent-2); border: 1px solid rgba(22,163,74,0.25); }
+.notif-erreur  { background: rgba(220,38,38,0.08);  color: var(--couleur-danger);   border: 1px solid rgba(220,38,38,0.25); }
+.notif-info    { background: rgba(37,99,235,0.08);  color: var(--couleur-accent);   border: 1px solid rgba(37,99,235,0.25); }
+
+/* =============================================================================
+   RESPONSIVE
+   ============================================================================= */
+@media (max-width: 900px) { .barre-outils { width: 155px; } .panneau-simulation { left: 155px; } }
+@media (max-width: 640px) { .barre-outils { display: none; } .panneau-simulation { left: 0; } .legende { display: none; } }
+
+/* =============================================================================
+   PANNEAU RÉSEAUX (barre gauche)
+   ============================================================================= */
+#section-reseaux .barre-outils-titre {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.btn-ajouter-reseau-rapide {
+    background: var(--couleur-accent);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    font-size: 0.9rem;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background var(--transition);
+}
+.btn-ajouter-reseau-rapide:hover { background: var(--couleur-accent-hover); }
+
+.barre-reseaux-vide {
+    font-size: 0.75rem;
+    color: var(--couleur-texte-3);
+    font-style: italic;
+    padding: 0.25rem 0;
+}
+
+.reseau-badge {
+    background: rgba(37,99,235,0.06);
+    border: 1px solid rgba(37,99,235,0.18);
+    border-radius: var(--rayon);
+    padding: 0.4rem 0.5rem;
+    margin-bottom: 0.3rem;
+}
+
+.reseau-badge-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.3rem;
+    margin-bottom: 0.15rem;
+}
+
+.reseau-badge-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--couleur-accent);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 110px;
+}
+
+.reseau-badge-cidr {
+    font-size: 0.72rem;
+    color: var(--couleur-texte-2);
+    font-family: var(--police-mono, monospace);
+    font-weight: 500;
+}
+
+.reseau-badge-suppr {
+    background: none;
+    border: none;
+    color: var(--couleur-texte-3);
+    cursor: pointer;
+    font-size: 0.9rem;
+    line-height: 1;
+    padding: 0 0.1rem;
+    flex-shrink: 0;
+    transition: color var(--transition);
+}
+.reseau-badge-suppr:hover { color: var(--couleur-danger); }
+
+/* =============================================================================
+   CHAMPS SIMULATION — sélect hôtes + input manuel
+   ============================================================================= */
+.sim-ip-manuel {
+    font-size: 0.75rem !important;
+    color: var(--couleur-texte-3);
+}
+.sim-ip-manuel:focus { color: var(--couleur-texte); }

@@ -1,221 +1,548 @@
 <?php
-/**
- * backend/modeles/Scenario.php
- * Modèle parfaitement aligné sur le nouveau schéma SQL (MLD propre).
- */
+// =============================================================================
+// MODÈLE : Scenario
+// Auteur : Étudiant
+// Description : Opérations CRUD sur l'ensemble des entités d'un scénario
+//               (routeurs, interfaces, routes, switchs, réseaux, hôtes,
+//               câblages). Isolé par utilisateur (multi-tenancy).
+// =============================================================================
+
+require_once __DIR__ . '/../noyau/BaseDeDonnees.php';
+
 class Scenario {
+
+    /** @var PDO Instance de connexion */
     private PDO $pdo;
 
-    public function __construct(PDO $pdo) { $this->pdo = $pdo; }
-
-    // --- GESTION DU TABLEAU DE BORD ---
-    public function lireScenariosParUtilisateur(int $utilisateurId): array {
-        // SCENARIO (id_scenario, id_user, nom_scenario, description)
-        $stmt = $this->pdo->prepare("SELECT id_scenario AS id, nom_scenario AS nom FROM SCENARIO WHERE id_user = :uid ORDER BY id_scenario DESC");
-        $stmt->execute([':uid' => $utilisateurId]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    public function __construct() {
+        $this->pdo = BaseDeDonnees::getInstance();
     }
 
-    public function obtenirScenario(int $id, int $utilisateurId): ?array {
-        $stmt = $this->pdo->prepare("SELECT id_scenario AS id, nom_scenario AS nom FROM SCENARIO WHERE id_scenario = :id AND id_user = :uid");
-        $stmt->execute([':id' => $id, ':uid' => $utilisateurId]);
-        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    // =========================================================================
+    // SCÉNARIOS
+    // =========================================================================
+
+    /**
+     * Retourne tous les scénarios d'un utilisateur (isolation multi-tenancy).
+     *
+     * @param int $idUser Identifiant de l'utilisateur connecté
+     * @return array Liste des scénarios
+     */
+    public function listerParUtilisateur(int $idUser): array {
+        $requete = $this->pdo->prepare(
+            'SELECT id_scenario, nom_scenario, description
+             FROM SCENARIO
+             WHERE id_user = :id_user
+             ORDER BY id_scenario DESC'
+        );
+        $requete->execute([':id_user' => $idUser]);
+        return $requete->fetchAll();
     }
 
-    public function creerScenario(int $utilisateurId, string $nom): int {
-        $stmt = $this->pdo->prepare("INSERT INTO SCENARIO (id_user, nom_scenario) VALUES (:uid, :nom) RETURNING id_scenario");
-        $stmt->execute([':uid' => $utilisateurId, ':nom' => trim($nom)]);
-        return (int) $stmt->fetchColumn();
+    /**
+     * Vérifie qu'un scénario appartient bien à l'utilisateur donné.
+     * Sécurité : empêche l'accès aux scénarios d'autres utilisateurs.
+     *
+     * @param int $idScenario Identifiant du scénario
+     * @param int $idUser     Identifiant de l'utilisateur
+     * @return bool True si le scénario appartient à l'utilisateur
+     */
+    public function appartientA(int $idScenario, int $idUser): bool {
+        $requete = $this->pdo->prepare(
+            'SELECT 1 FROM SCENARIO
+             WHERE id_scenario = :id_scenario AND id_user = :id_user'
+        );
+        $requete->execute([
+            ':id_scenario' => $idScenario,
+            ':id_user'     => $idUser,
+        ]);
+        return (bool)$requete->fetch();
     }
 
-    public function supprimerScenario(int $id, int $utilisateurId): bool {
-        return $this->pdo->prepare("DELETE FROM SCENARIO WHERE id_scenario = :id AND id_user = :uid")->execute([':id' => $id, ':uid' => $utilisateurId]);
+    /**
+     * Crée un nouveau scénario vide pour un utilisateur.
+     *
+     * @param string $nom         Nom du scénario
+     * @param string $description Description optionnelle
+     * @param int    $idUser      Propriétaire du scénario
+     * @return int Identifiant du scénario créé
+     */
+    public function creer(string $nom, string $description, int $idUser): int {
+        $requete = $this->pdo->prepare(
+            'INSERT INTO SCENARIO (nom_scenario, description, id_user)
+             VALUES (:nom, :desc, :id_user)
+             RETURNING id_scenario'
+        );
+        $requete->execute([
+            ':nom'     => $nom,
+            ':desc'    => $description,
+            ':id_user' => $idUser,
+        ]);
+        return (int)$requete->fetchColumn();
     }
 
-    // --- GESTION DES SOUS-RÉSEAUX (Table RESEAU) ---
-    public function lireSousReseaux(int $sid): array {
-        $stmt = $this->pdo->prepare("SELECT id_reseau AS id, label AS nom, pos_x, pos_y FROM RESEAU WHERE id_scenario = :sid");
-        $stmt->execute([':sid' => $sid]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-
-    public function creerSousReseau(int $sid, string $nom, string $cidr): int {
-        $parts = explode('/', $cidr);
-        $ip = $parts[0] ?? '10.0.0.0';
-        $masque = isset($parts[1]) ? (int)$parts[1] : 24;
-
-        $x = rand(100, 350); $y = rand(100, 350); // <-- NOUVEAU
-        $stmt = $this->pdo->prepare("INSERT INTO RESEAU (id_scenario, adresse_reseau, masque, label, pos_x, pos_y) VALUES (:sid, :ip, :masque, :nom, :x, :y) RETURNING id_reseau");
-        $stmt->execute([':sid' => $sid, ':ip' => $ip, ':masque' => $masque, ':nom' => $nom, ':x' => $x, ':y' => $y]);
-        return (int)$stmt->fetchColumn();
-    }
-
-    // --- LECTURE ET CRÉATION DES ÉQUIPEMENTS ---
-    public function lireRouteurs(int $sid): array {
-        $stmt = $this->pdo->prepare("SELECT id_routeur AS id, nom, pos_x, pos_y FROM Routeur WHERE id_scenario = :sid");
-        $stmt->execute([':sid' => $sid]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-
-    public function lireSwitchsParScenario(int $sid): array {
-        // Le switch est maintenant lié directement au scénario
-        $stmt = $this->pdo->prepare("SELECT id_switch AS id, nom, pos_x, pos_y FROM SWITCH WHERE id_scenario = :sid");
-        $stmt->execute([':sid' => $sid]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-
-    public function lireHotesParScenario(int $sid): array {
-        $stmt = $this->pdo->prepare("SELECT id_hote AS id, nom, pos_x, pos_y FROM HOTE WHERE id_scenario = :sid");
-        $stmt->execute([':sid' => $sid]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-
-    public function creerRouteur(int $sid, string $nom): int {
-        $x = rand(50, 200); $y = rand(50, 200); // <-- NOUVEAU : Position aléatoire
-        $stmt = $this->pdo->prepare("INSERT INTO Routeur (id_scenario, nom, pos_x, pos_y) VALUES (:sid, :nom, :x, :y) RETURNING id_routeur");
-        $stmt->execute([':sid' => $sid, ':nom' => $nom, ':x' => $x, ':y' => $y]);
-        return (int)$stmt->fetchColumn();
-    }
-
-    public function creerSwitch(int $srid, string $nom): int {
-        $sid = $this->pdo->query("SELECT id_scenario FROM RESEAU WHERE id_reseau = " . (int)$srid)->fetchColumn();
-        if (!$sid) return 0;
-
-        $x = rand(150, 300); $y = rand(150, 300); // <-- NOUVEAU
-        $stmt = $this->pdo->prepare("INSERT INTO SWITCH (id_scenario, nom, pos_x, pos_y) VALUES (:sid, :nom, :x, :y) RETURNING id_switch");
-        $stmt->execute([':sid' => $sid, ':nom' => $nom, ':x' => $x, ':y' => $y]);
-        return (int)$stmt->fetchColumn();
-    }
-
-    public function creerHote(int $srid, string $nom, string $ip): int {
-        $sid = $this->pdo->query("SELECT id_scenario FROM RESEAU WHERE id_reseau = " . (int)$srid)->fetchColumn();
-        if (!$sid) return 0;
-
-        $x = rand(250, 400); $y = rand(250, 400); // <-- NOUVEAU
-        $stmt = $this->pdo->prepare("INSERT INTO HOTE (id_scenario, id_reseau, nom, adresse_ip, pos_x, pos_y) VALUES (:sid, :srid, :nom, :ip, :x, :y) RETURNING id_hote");
-        $stmt->execute([':sid' => $sid, ':srid' => $srid, ':nom' => $nom, ':ip' => $ip, ':x' => $x, ':y' => $y]);
-        return (int)$stmt->fetchColumn();
-    }
-
-    // --- POSITIONS, RENOMMAGE ET SUPPRESSION MULTI-TYPES ---
-    
-    public function renommerEquipement(string $type, int $id, string $nouveauNom): bool {
-        // Routage dynamique vers les bonnes tables et bonnes colonnes
-        $tables = [
-            'routeurs' => ['table' => 'Routeur', 'id' => 'id_routeur', 'col' => 'nom'],
-            'switchs'  => ['table' => 'SWITCH', 'id' => 'id_switch', 'col' => 'nom'],
-            'hotes'    => ['table' => 'HOTE', 'id' => 'id_hote', 'col' => 'nom'],
-            'reseaux'  => ['table' => 'RESEAU', 'id' => 'id_reseau', 'col' => 'label']
-        ];
-        if (!isset($tables[$type])) return false;
-        
-        $t = $tables[$type];
-        $sql = "UPDATE {$t['table']} SET {$t['col']} = :nom WHERE {$t['id']} = :id";
-        return $this->pdo->prepare($sql)->execute([':nom' => trim($nouveauNom), ':id' => $id]);
-    }
-
-    public function mettreAJourPositions(string $type, int $id, int $x, int $y): bool {
-        $tables = [
-            'routeurs'    => ['table' => 'Routeur', 'id' => 'id_routeur'],
-            'switchs'     => ['table' => 'SWITCH', 'id' => 'id_switch'],
-            'hotes'       => ['table' => 'HOTE', 'id' => 'id_hote'],
-            'sous_reseau' => ['table' => 'RESEAU', 'id' => 'id_reseau']
-        ];
-        if (!isset($tables[$type])) return false;
-        
-        $t = $tables[$type];
-        return $this->pdo->prepare("UPDATE {$t['table']} SET pos_x = :x, pos_y = :y WHERE {$t['id']} = :id")->execute([':x' => $x, ':y' => $y, ':id' => $id]);
-    }
-
-    public function supprimerEquipement(string $tableKey, int $id): bool {
-        $tables = [
-            'routeur'     => ['table' => 'Routeur', 'id' => 'id_routeur'],
-            'switch'      => ['table' => 'SWITCH', 'id' => 'id_switch'],
-            'hote'        => ['table' => 'HOTE', 'id' => 'id_hote'],
-            'sous_reseau' => ['table' => 'RESEAU', 'id' => 'id_reseau']
-        ];
-        if (!isset($tables[$tableKey])) return false;
-        
-        $t = $tables[$tableKey];
-        return $this->pdo->prepare("DELETE FROM {$t['table']} WHERE {$t['id']} = ?")->execute([$id]);
-    }
-
-    // --- CÂBLAGE ET INTERFACES ---
-    public function lireLiaisonsHoteSwitch(int $sid): array {
-        $stmt = $this->pdo->prepare("
-            SELECT chs.id_hote AS hote_id, chs.id_switch AS switch_id 
-            FROM CABLER_HOTE_SWITCH chs 
-            JOIN HOTE h ON chs.id_hote = h.id_hote 
-            WHERE h.id_scenario = :sid
-        ");
-        $stmt->execute([':sid' => $sid]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-
-    public function lireLiaisonsInterfaceSwitch(int $sid): array {
-        $sql = "
-            SELECT cis.id_interface AS interface_id, cis.id_switch AS switch_id, ir.id_routeur AS routeur_id 
-            FROM CABLER_INTERFACE_SWITCH cis 
-            JOIN INTERFACE ir ON cis.id_interface = ir.id_interface 
-            JOIN Routeur r ON ir.id_routeur = r.id_routeur 
-            WHERE r.id_scenario = :sid
-        ";
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute([':sid' => $sid]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-
-    public function creerLiaisonHoteSwitch(int $hId, int $sId): bool {
-        $sql = "INSERT INTO CABLER_HOTE_SWITCH (id_hote, id_switch) VALUES (?, ?) ON CONFLICT (id_switch, id_hote) DO NOTHING";
-        return $this->pdo->prepare($sql)->execute([$hId, $sId]);
-    }
-
-    public function supprimerLiaisonHoteSwitch(int $hId, int $sId): bool {
-        return $this->pdo->prepare("DELETE FROM CABLER_HOTE_SWITCH WHERE id_hote = ? AND id_switch = ?")->execute([$hId, $sId]);
-    }
-
-    public function obtenirInterfaceLibre(int $rid): int {
-        $stmt = $this->pdo->prepare("SELECT id_interface FROM INTERFACE WHERE id_routeur = :rid AND id_interface NOT IN (SELECT id_interface FROM CABLER_INTERFACE_SWITCH) LIMIT 1");
-        $stmt->execute([':rid' => $rid]);
-        $id = $stmt->fetchColumn();
-
-        if (!$id) {
-            $sql = "INSERT INTO INTERFACE (id_routeur, adresse_ip, masque, nom) VALUES (:rid, :ip, 24, :nom) RETURNING id_interface";
-            $stmt = $this->pdo->prepare($sql);
-            $stmt->execute([':rid' => $rid, ':ip' => "10.0." . rand(1, 250) . ".1", ':nom' => "eth" . rand(0, 99)]);
-            $id = $stmt->fetchColumn();
+    /**
+     * Supprime un scénario et toutes ses entités (cascade en BDD).
+     *
+     * @param int $idScenario Identifiant du scénario
+     * @param int $idUser     Vérification d'appartenance
+     * @return bool True si la suppression a réussi
+     */
+    public function supprimer(int $idScenario, int $idUser): bool {
+        if (!$this->appartientA($idScenario, $idUser)) {
+            return false;
         }
-        return (int)$id;
+
+        $requete = $this->pdo->prepare(
+            'DELETE FROM SCENARIO WHERE id_scenario = :id AND id_user = :id_user'
+        );
+        $requete->execute([
+            ':id'      => $idScenario,
+            ':id_user' => $idUser,
+        ]);
+        return true;
     }
 
-    public function creerLiaisonInterfaceSwitch(int $iId, int $sId): bool {
-        $sql = "INSERT INTO CABLER_INTERFACE_SWITCH (id_interface, id_switch) VALUES (?, ?) ON CONFLICT (id_interface, id_switch) DO NOTHING";
-        return $this->pdo->prepare($sql)->execute([$iId, $sId]);
+    // =========================================================================
+    // TOPOLOGIE COMPLÈTE (pour le rendu vis.js)
+    // =========================================================================
+
+    /**
+     * Charge la topologie complète d'un scénario pour l'affichage vis.js.
+     * Retourne tous les nœuds et liens nécessaires au frontend.
+     *
+     * @param int $idScenario Identifiant du scénario
+     * @return array Topologie avec nœuds et liens
+     */
+    public function chargerTopologie(int $idScenario): array {
+        return [
+            'routeurs'   => $this->listerRouteurs($idScenario),
+            'interfaces' => $this->listerInterfaces($idScenario),
+            'routes'     => $this->listerRoutes($idScenario),
+            'switchs'    => $this->listerSwitchs($idScenario),
+            'reseaux'    => $this->listerReseaux($idScenario),
+            'hotes'      => $this->listerHotes($idScenario),
+            'cables'     => [
+                'hote_switch'        => $this->listerCablesHoteSwitch($idScenario),
+                'interface_switch'   => $this->listerCablesInterfaceSwitch($idScenario),
+                'interface_interface'=> $this->listerCablesInterfaceInterface($idScenario),
+            ],
+        ];
     }
 
-    public function supprimerLiaisonInterfaceSwitch(int $iId, int $sId): bool {
-        return $this->pdo->prepare("DELETE FROM CABLER_INTERFACE_SWITCH WHERE id_interface = ? AND id_switch = ?")->execute([$iId, $sId]);
-    }
-    // --- GESTION DES INTERFACES DE ROUTEURS ---
-    
-    public function lireInterfacesRouteur(int $rid): array {
-        $stmt = $this->pdo->prepare("SELECT id_interface AS id, nom, adresse_ip, masque FROM INTERFACE WHERE id_routeur = :rid ORDER BY nom ASC");
-        $stmt->execute([':rid' => $rid]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    // =========================================================================
+    // ROUTEURS
+    // =========================================================================
+
+    public function listerRouteurs(int $idScenario): array {
+        $r = $this->pdo->prepare(
+            'SELECT id_routeur, nom, pos_x, pos_y FROM Routeur
+             WHERE id_scenario = :id ORDER BY id_routeur'
+        );
+        $r->execute([':id' => $idScenario]);
+        return $r->fetchAll();
     }
 
-    public function creerInterfaceRouteur(int $rid, string $ip, int $masque, string $nom): int {
+    public function ajouterRouteur(int $idScenario, string $nom, float $x = 0, float $y = 0): int {
+        $r = $this->pdo->prepare(
+            'INSERT INTO Routeur (nom, pos_x, pos_y, id_scenario)
+             VALUES (:nom, :x, :y, :id) RETURNING id_routeur'
+        );
+        $r->execute([':nom' => $nom, ':x' => $x, ':y' => $y, ':id' => $idScenario]);
+        return (int)$r->fetchColumn();
+    }
+
+    public function modifierRouteur(int $idRouteur, string $nom): bool {
+        $r = $this->pdo->prepare(
+            'UPDATE Routeur SET nom = :nom WHERE id_routeur = :id'
+        );
+        return $r->execute([':nom' => $nom, ':id' => $idRouteur]);
+    }
+
+    public function mettreAJourPositionRouteur(int $idRouteur, float $x, float $y): bool {
+        $r = $this->pdo->prepare(
+            'UPDATE Routeur SET pos_x = :x, pos_y = :y WHERE id_routeur = :id'
+        );
+        return $r->execute([':x' => $x, ':y' => $y, ':id' => $idRouteur]);
+    }
+
+    public function supprimerRouteur(int $idRouteur): bool {
+        // La cascade en BDD supprime les interfaces et routes associées
+        $r = $this->pdo->prepare('DELETE FROM Routeur WHERE id_routeur = :id');
+        return $r->execute([':id' => $idRouteur]);
+    }
+
+    // =========================================================================
+    // INTERFACES
+    // =========================================================================
+
+    public function listerInterfaces(int $idScenario): array {
+        $r = $this->pdo->prepare(
+            'SELECT i.id_interface, host(i.adresse_ip) AS adresse_ip, i.masque, i.nom, i.id_routeur
+             FROM INTERFACE i
+             INNER JOIN Routeur ro ON ro.id_routeur = i.id_routeur
+             WHERE ro.id_scenario = :id ORDER BY i.id_interface'
+        );
+        $r->execute([':id' => $idScenario]);
+        return $r->fetchAll();
+    }
+
+    public function ajouterInterface(int $idRouteur, string $nom, string $ip, int $masque): array {
+        // Validation du masque
+        if ($masque < 0 || $masque > 32) {
+            return ['succes' => false, 'message' => "Masque CIDR invalide (0-32)."];
+        }
+
         try {
-            $stmt = $this->pdo->prepare("INSERT INTO INTERFACE (id_routeur, adresse_ip, masque, nom) VALUES (:rid, :ip, :masque, :nom) RETURNING id_interface");
-            $stmt->execute([':rid' => $rid, ':ip' => $ip, ':masque' => $masque, ':nom' => $nom]);
-            return (int)$stmt->fetchColumn();
+            $r = $this->pdo->prepare(
+                'INSERT INTO INTERFACE (adresse_ip, masque, nom, id_routeur)
+                 VALUES (:ip::inet, :masque, :nom, :id) RETURNING id_interface'
+            );
+            $r->execute([':ip' => $ip, ':masque' => $masque, ':nom' => $nom, ':id' => $idRouteur]);
+            return ['succes' => true, 'id' => (int)$r->fetchColumn()];
         } catch (PDOException $e) {
-            // Renvoie 0 si l'IP ou le nom provoque une erreur (ex: violation de la contrainte UNIQUE)
-            return 0; 
+            error_log('[ERREUR Interface::ajouter] ' . $e->getMessage());
+            return ['succes' => false, 'message' => "Format d'adresse IP invalide."];
         }
     }
 
-    public function supprimerInterfaceRouteur(int $idInterface): bool {
-        return $this->pdo->prepare("DELETE FROM INTERFACE WHERE id_interface = ?")->execute([$idInterface]);
+    public function modifierInterface(int $idInterface, string $nom, string $ip, int $masque): array {
+        if ($masque < 0 || $masque > 32) {
+            return ['succes' => false, 'message' => "Masque CIDR invalide (0-32)."];
+        }
+
+        try {
+            $r = $this->pdo->prepare(
+                'UPDATE INTERFACE
+                 SET adresse_ip = :ip::inet, masque = :masque, nom = :nom
+                 WHERE id_interface = :id'
+            );
+            $r->execute([':ip' => $ip, ':masque' => $masque, ':nom' => $nom, ':id' => $idInterface]);
+            return ['succes' => true];
+        } catch (PDOException $e) {
+            return ['succes' => false, 'message' => "Format d'adresse IP invalide."];
+        }
+    }
+
+    public function supprimerInterface(int $idInterface): bool {
+        $r = $this->pdo->prepare('DELETE FROM INTERFACE WHERE id_interface = :id');
+        return $r->execute([':id' => $idInterface]);
+    }
+
+    // =========================================================================
+    // ROUTES STATIQUES
+    // =========================================================================
+
+    public function listerRoutes(int $idScenario): array {
+        $r = $this->pdo->prepare(
+            'SELECT rs.id_route, host(rs.reseau_dest) AS reseau_dest, rs.masque_dest,
+                    host(rs.next_hop) AS next_hop, rs.id_routeur
+             FROM ROUTE_STATIQUE rs
+             INNER JOIN Routeur ro ON ro.id_routeur = rs.id_routeur
+             WHERE ro.id_scenario = :id ORDER BY rs.id_route'
+        );
+        $r->execute([':id' => $idScenario]);
+        return $r->fetchAll();
+    }
+
+    public function ajouterRoute(int $idRouteur, string $reseauDest, int $masqueDest, string $nextHop): array {
+        if ($masqueDest < 0 || $masqueDest > 32) {
+            return ['succes' => false, 'message' => "Masque de destination invalide."];
+        }
+
+        try {
+            $r = $this->pdo->prepare(
+                'INSERT INTO ROUTE_STATIQUE (reseau_dest, masque_dest, next_hop, id_routeur)
+                 VALUES (:dest::inet, :masque, :hop::inet, :id) RETURNING id_route'
+            );
+            $r->execute([
+                ':dest'   => $reseauDest,
+                ':masque' => $masqueDest,
+                ':hop'    => $nextHop,
+                ':id'     => $idRouteur,
+            ]);
+            return ['succes' => true, 'id' => (int)$r->fetchColumn()];
+        } catch (PDOException $e) {
+            return ['succes' => false, 'message' => "Adresse IP invalide dans la route."];
+        }
+    }
+
+    public function supprimerRoute(int $idRoute): bool {
+        $r = $this->pdo->prepare('DELETE FROM ROUTE_STATIQUE WHERE id_route = :id');
+        return $r->execute([':id' => $idRoute]);
+    }
+
+    // =========================================================================
+    // SWITCHS
+    // =========================================================================
+
+    public function listerSwitchs(int $idScenario): array {
+        $r = $this->pdo->prepare(
+            'SELECT id_switch, nom, pos_x, pos_y FROM SWITCH
+             WHERE id_scenario = :id ORDER BY id_switch'
+        );
+        $r->execute([':id' => $idScenario]);
+        return $r->fetchAll();
+    }
+
+    public function ajouterSwitch(int $idScenario, string $nom, float $x = 0, float $y = 0): int {
+        $r = $this->pdo->prepare(
+            'INSERT INTO SWITCH (nom, pos_x, pos_y, id_scenario)
+             VALUES (:nom, :x, :y, :id) RETURNING id_switch'
+        );
+        $r->execute([':nom' => $nom, ':x' => $x, ':y' => $y, ':id' => $idScenario]);
+        return (int)$r->fetchColumn();
+    }
+
+    public function modifierSwitch(int $idSwitch, string $nom): bool {
+        $r = $this->pdo->prepare('UPDATE SWITCH SET nom = :nom WHERE id_switch = :id');
+        return $r->execute([':nom' => $nom, ':id' => $idSwitch]);
+    }
+
+    public function mettreAJourPositionSwitch(int $idSwitch, float $x, float $y): bool {
+        $r = $this->pdo->prepare(
+            'UPDATE SWITCH SET pos_x = :x, pos_y = :y WHERE id_switch = :id'
+        );
+        return $r->execute([':x' => $x, ':y' => $y, ':id' => $idSwitch]);
+    }
+
+    public function supprimerSwitch(int $idSwitch): bool {
+        $r = $this->pdo->prepare('DELETE FROM SWITCH WHERE id_switch = :id');
+        return $r->execute([':id' => $idSwitch]);
+    }
+
+    // =========================================================================
+    // RÉSEAUX
+    // =========================================================================
+
+    public function listerReseaux(int $idScenario): array {
+        $r = $this->pdo->prepare(
+            'SELECT id_reseau, host(adresse_reseau) AS adresse_reseau, masque, label
+             FROM RESEAU WHERE id_scenario = :id ORDER BY id_reseau'
+        );
+        $r->execute([':id' => $idScenario]);
+        return $r->fetchAll();
+    }
+
+    public function ajouterReseau(int $idScenario, string $adresse, int $masque, string $label): array {
+        try {
+            $r = $this->pdo->prepare(
+                'INSERT INTO RESEAU (adresse_reseau, masque, label, id_scenario)
+                 VALUES (:addr::inet, :masque, :label, :id) RETURNING id_reseau'
+            );
+            $r->execute([':addr' => $adresse, ':masque' => $masque, ':label' => $label, ':id' => $idScenario]);
+            return ['succes' => true, 'id' => (int)$r->fetchColumn()];
+        } catch (PDOException $e) {
+            return ['succes' => false, 'message' => "Adresse réseau invalide."];
+        }
+    }
+
+    public function supprimerReseau(int $idReseau): bool {
+        $r = $this->pdo->prepare('DELETE FROM RESEAU WHERE id_reseau = :id');
+        return $r->execute([':id' => $idReseau]);
+    }
+
+    // =========================================================================
+    // HÔTES
+    // =========================================================================
+
+    public function listerHotes(int $idScenario): array {
+        $r = $this->pdo->prepare(
+            'SELECT id_hote, nom, host(adresse_ip) AS adresse_ip, host(passerelle_ip) AS passerelle_ip,
+                    pos_x, pos_y, id_reseau
+             FROM HOTE WHERE id_scenario = :id ORDER BY id_hote'
+        );
+        $r->execute([':id' => $idScenario]);
+        return $r->fetchAll();
+    }
+
+    public function ajouterHote(
+        int $idScenario, string $nom, string $ip, string $passerelle,
+        ?int $idReseau, float $x = 0, float $y = 0
+    ): array {
+        // Validation : si un réseau est spécifié, vérifier que la passerelle est dans le même sous-réseau
+        if ($idReseau && !$this->validerPasserelle($ip, $passerelle, $idReseau)) {
+            return ['succes' => false, 'message' => "La passerelle n'appartient pas au même sous-réseau que l'hôte."];
+        }
+
+        try {
+            $r = $this->pdo->prepare(
+                'INSERT INTO HOTE (nom, adresse_ip, passerelle_ip, pos_x, pos_y, id_reseau, id_scenario)
+                 VALUES (:nom, :ip::inet, :gw::inet, :x, :y, :reseau, :scenario)
+                 RETURNING id_hote'
+            );
+            $r->execute([
+                ':nom'      => $nom,
+                ':ip'       => $ip,
+                ':gw'       => $passerelle,
+                ':x'        => $x,
+                ':y'        => $y,
+                ':reseau'   => $idReseau,
+                ':scenario' => $idScenario,
+            ]);
+            return ['succes' => true, 'id' => (int)$r->fetchColumn()];
+        } catch (PDOException $e) {
+            return ['succes' => false, 'message' => "Format d'adresse IP invalide."];
+        }
+    }
+
+    public function modifierHote(
+        int $idHote, string $nom, string $ip, string $passerelle, ?int $idReseau
+    ): array {
+        if ($idReseau && !$this->validerPasserelle($ip, $passerelle, $idReseau)) {
+            return ['succes' => false, 'message' => "La passerelle n'appartient pas au même sous-réseau que l'hôte."];
+        }
+
+        try {
+            $r = $this->pdo->prepare(
+                'UPDATE HOTE
+                 SET nom = :nom, adresse_ip = :ip::inet, passerelle_ip = :gw::inet, id_reseau = :reseau
+                 WHERE id_hote = :id'
+            );
+            $r->execute([':nom' => $nom, ':ip' => $ip, ':gw' => $passerelle, ':reseau' => $idReseau, ':id' => $idHote]);
+            return ['succes' => true];
+        } catch (PDOException $e) {
+            return ['succes' => false, 'message' => "Format d'adresse IP invalide."];
+        }
+    }
+
+    public function mettreAJourPositionHote(int $idHote, float $x, float $y): bool {
+        $r = $this->pdo->prepare('UPDATE HOTE SET pos_x = :x, pos_y = :y WHERE id_hote = :id');
+        return $r->execute([':x' => $x, ':y' => $y, ':id' => $idHote]);
+    }
+
+    public function supprimerHote(int $idHote): bool {
+        $r = $this->pdo->prepare('DELETE FROM HOTE WHERE id_hote = :id');
+        return $r->execute([':id' => $idHote]);
+    }
+
+    // =========================================================================
+    // CÂBLAGES
+    // =========================================================================
+
+    public function listerCablesHoteSwitch(int $idScenario): array {
+        $r = $this->pdo->prepare(
+            'SELECT chs.id_switch, chs.id_hote
+             FROM CABLER_HOTE_SWITCH chs
+             INNER JOIN HOTE h ON h.id_hote = chs.id_hote
+             WHERE h.id_scenario = :id'
+        );
+        $r->execute([':id' => $idScenario]);
+        return $r->fetchAll();
+    }
+
+    public function listerCablesInterfaceSwitch(int $idScenario): array {
+        $r = $this->pdo->prepare(
+            'SELECT cis.id_interface, cis.id_switch
+             FROM CABLER_INTERFACE_SWITCH cis
+             INNER JOIN SWITCH s ON s.id_switch = cis.id_switch
+             WHERE s.id_scenario = :id'
+        );
+        $r->execute([':id' => $idScenario]);
+        return $r->fetchAll();
+    }
+
+    public function listerCablesInterfaceInterface(int $idScenario): array {
+        $r = $this->pdo->prepare(
+            'SELECT cii.id_interface, cii.id_interface_1
+             FROM CABLER_INTERFACE_INTERFACE cii
+             INNER JOIN INTERFACE i ON i.id_interface = cii.id_interface
+             INNER JOIN Routeur ro ON ro.id_routeur = i.id_routeur
+             WHERE ro.id_scenario = :id'
+        );
+        $r->execute([':id' => $idScenario]);
+        return $r->fetchAll();
+    }
+
+    public function cablerHoteSwitch(int $idHote, int $idSwitch): bool {
+        try {
+            $r = $this->pdo->prepare(
+                'INSERT INTO CABLER_HOTE_SWITCH (id_switch, id_hote) VALUES (:sw, :h)'
+            );
+            return $r->execute([':sw' => $idSwitch, ':h' => $idHote]);
+        } catch (PDOException $e) {
+            return false; // Liaison déjà existante
+        }
+    }
+
+    public function decablerInterfaceSwitch(int $idInterface, int $idSwitch): bool {
+        $r = $this->pdo->prepare(
+            'DELETE FROM CABLER_INTERFACE_SWITCH WHERE id_interface = :i AND id_switch = :sw'
+        );
+        return $r->execute([':i' => $idInterface, ':sw' => $idSwitch]);
+    }
+
+    public function decablerHoteSwitch(int $idHote, int $idSwitch): bool {
+        $r = $this->pdo->prepare(
+            'DELETE FROM CABLER_HOTE_SWITCH WHERE id_switch = :sw AND id_hote = :h'
+        );
+        return $r->execute([':sw' => $idSwitch, ':h' => $idHote]);
+    }
+
+    public function cablerInterfaceSwitch(int $idInterface, int $idSwitch): bool {
+        try {
+            $r = $this->pdo->prepare(
+                'INSERT INTO CABLER_INTERFACE_SWITCH (id_interface, id_switch) VALUES (:i, :sw)'
+            );
+            return $r->execute([':i' => $idInterface, ':sw' => $idSwitch]);
+        } catch (PDOException $e) {
+            return false;
+        }
+    }
+
+    public function cablerInterfaceInterface(int $idInterface1, int $idInterface2): bool {
+        try {
+            $r = $this->pdo->prepare(
+                'INSERT INTO CABLER_INTERFACE_INTERFACE (id_interface, id_interface_1)
+                 VALUES (:i1, :i2)'
+            );
+            return $r->execute([':i1' => $idInterface1, ':i2' => $idInterface2]);
+        } catch (PDOException $e) {
+            return false;
+        }
+    }
+
+    public function decablerInterfaceInterface(int $idInterface1, int $idInterface2): bool {
+        $r = $this->pdo->prepare(
+            'DELETE FROM CABLER_INTERFACE_INTERFACE
+             WHERE (id_interface = :i1 AND id_interface_1 = :i2)
+                OR (id_interface = :i2 AND id_interface_1 = :i1)'
+        );
+        return $r->execute([':i1' => $idInterface1, ':i2' => $idInterface2]);
+    }
+
+    // =========================================================================
+    // UTILITAIRES PRIVÉS
+    // =========================================================================
+
+    /**
+     * Valide que la passerelle appartient au même sous-réseau que l'hôte.
+     * Algorithme : IPHote XOR Masque == IPGW XOR Masque (specs)
+     *
+     * @param string $ipHote      IP de l'hôte
+     * @param string $ipPasserelle IP de la passerelle
+     * @param int    $idReseau    Identifiant du réseau pour récupérer le masque
+     * @return bool True si la passerelle est valide
+     */
+    private function validerPasserelle(string $ipHote, string $ipPasserelle, int $idReseau): bool {
+        $reseau = $this->pdo->prepare(
+            'SELECT masque FROM RESEAU WHERE id_reseau = :id'
+        );
+        $reseau->execute([':id' => $idReseau]);
+        $data = $reseau->fetch();
+
+        if (!$data) return false;
+
+        $masque     = (int)$data['masque'];
+        $masqueLong = $masque === 0 ? 0 : (0xFFFFFFFF << (32 - $masque)) & 0xFFFFFFFF;
+
+        $longHote = ip2long(strtok($ipHote, '/'));
+        $longGW   = ip2long(strtok($ipPasserelle, '/'));
+
+        if ($longHote === false || $longGW === false) return false;
+
+        // Vérification : les deux adresses doivent avoir le même préfixe réseau
+        return ($longHote & $masqueLong) === ($longGW & $masqueLong);
     }
 }
+?>

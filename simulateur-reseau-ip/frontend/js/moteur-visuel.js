@@ -1,346 +1,557 @@
 /**
- * frontend/js/moteur-visuel.js
- * Moteur Vis.js adapté à la maquette UI avec séparation stricte Switchs / Réseaux et Fenêtre Modale.
+ * =============================================================================
+ * MOTEUR-VISUEL.JS
+ * Auteur : Étudiant
+ * Description : Moteur de rendu graphique de la topologie réseau via vis.js.
+ *               Gère les nœuds, les liens, l'interactivité (clic, déplacement)
+ *               et l'animation des paquets lors de la simulation.
+ *
+ * IMPORTANT : Ce fichier doit être chargé AVANT application-client.js.
+ *             Il expose la variable globale `moteurVisuel` utilisée par l'autre JS.
+ * =============================================================================
  */
-let network = null;
-let nodes = new vis.DataSet([]);
-let edges = new vis.DataSet([]);
 
-// State global
-let donneesScenario = { routeurs: [], switchs: [], reseaux: [], hotes: [], liaisons_hs: [], liaisons_is: [] };
-let ongletActif = 'routeurs'; 
-let elementEnEdition = null; // NOUVEAU : Retient l'élément en cours de modification
+'use strict';
 
-// --- UTILITAIRE STRICT POUR REQUÊTES AJAX ---
-async function apiFetch(payload) {
-    const req = await fetch('backend/api.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    });
-    return await req.json();
-}
+// =============================================================================
+// CONFIGURATION VISUELLE DES NŒUDS
+// =============================================================================
 
-document.addEventListener('DOMContentLoaded', () => { 
-    if (typeof CURRENT_SCENARIO_ID !== 'undefined') initialiserEditeur(); 
-});
+const STYLE_NOEUD = {
+    // Routeur : bleu clair professionnel, lisible sur fond blanc
+    ROUTEUR: {
+        shape: 'box',
+        color: {
+            background: '#1E40AF',
+            border:     '#2563EB',
+            highlight:  { background: '#1D4ED8', border: '#1E40AF' },
+            hover:      { background: '#2563EB', border: '#1D4ED8' },
+        },
+        font:        { color: '#FFFFFF', face: 'Arial', size: 13, bold: true },
+        borderWidth: 2,
+        borderWidthSelected: 3,
+        shadow:      { enabled: true, color: 'rgba(37,99,235,0.25)', size: 8 },
+        widthConstraint: { minimum: 80 },
+    },
 
-async function initialiserEditeur() {
-    try {
-        donneesScenario = await apiFetch({ action: 'charger_scenario', id: CURRENT_SCENARIO_ID });
-        
-        // Redirection propre si le scénario n'existe plus
-        if (donneesScenario.erreur) {
-            alert("Erreur : " + donneesScenario.erreur);
-            window.location.href = 'index.php?page=tableau-de-bord';
-            return;
-        }
-        
-        document.getElementById('nom-scenario').textContent = donneesScenario.nom || "Scénario";
-        switchEquipementTab(ongletActif);
-        dessinerReseau();
-    } catch (e) { 
-        console.error("Erreur réseau critique :", e); 
-        alert("Erreur critique de communication avec le serveur.");
-    }
-}
+    // Switch : carré à bords arrondis pour mieux afficher le label
+    SWITCH: {
+        shape: 'box',
+        color: {
+            background: '#5B21B6',
+            border:     '#7C3AED',
+            highlight:  { background: '#6D28D9', border: '#5B21B6' },
+            hover:      { background: '#6D28D9', border: '#7C3AED' },
+        },
+        font:        { color: '#FFFFFF', face: 'Arial', size: 12, bold: true },
+        borderWidth: 2,
+        borderWidthSelected: 3,
+        shadow:      { enabled: true, color: 'rgba(109,40,217,0.3)', size: 8 },
+        shapeProperties: { borderRadius: 4 },
+        /* Icône ◆ devant le nom pour distinguer visuellement du routeur */
+        icon: undefined,
+    },
 
-function switchEquipementTab(type) {
-    ongletActif = type;
-    
-    const mapNoms = { 'routeurs': 'routeurs', 'switchs': 'switchs', 'reseaux': 'réseaux', 'hotes': 'hôtes', 'routes': 'routes' };
-    
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.textContent.trim().toLowerCase() === mapNoms[type]);
-    });
+    // Hôte actif : vert foncé professionnel
+    HOTE_ACTIF: {
+        shape: 'ellipse',
+        color: {
+            background: '#14532D',
+            border:     '#16A34A',
+            highlight:  { background: '#166534', border: '#15803D' },
+            hover:      { background: '#166534', border: '#16A34A' },
+        },
+        font:        { color: '#FFFFFF', face: 'Arial', size: 12 },
+        borderWidth: 2,
+        borderWidthSelected: 3,
+        widthConstraint: { minimum: 100 },
+    },
 
-    const labelsSingulier = { 'routeurs': 'routeur', 'switchs': 'switch', 'reseaux': 'réseau', 'hotes': 'hôte', 'routes': 'route' };
-    const btnAjoutInfo = document.getElementById('label-type-ajout');
-    if (btnAjoutInfo) btnAjoutInfo.textContent = labelsSingulier[type] || 'élément';
-
-    mettreAJourInventaire(donneesScenario[type] || [], type);
-}
-
-function mettreAJourInventaire(items, type) {
-    const cont = document.getElementById('inventaire-objets');
-    if (!cont) return;
-    
-    if (items.length === 0) {
-        cont.innerHTML = `<p class="p-3 text-sm text-gray-500 text-center">Aucun élément configuré.</p>`;
-        return;
-    }
-
-    const sousTitres = {
-        'routeurs': 'Interface(s) configurée(s)',
-        'switchs': 'Commutateur L2',
-        'reseaux': 'Réseau IP (LAN)',
-        'hotes': 'Machine cible'
-    };
-
-    cont.innerHTML = items.map(i => `
-        <div class="carte-objet">
-            <div class="info-objet">
-                <strong>${i.nom}</strong>
-                <small>${sousTitres[type]}</small>
-            </div>
-            <div class="actions-objet">
-                <button class="btn-action-mini text-gray-600" onclick="editerElt('${type}', ${i.id}, '${i.nom}')">Éditer</button>
-                <button class="btn-action-mini text-red-500 font-bold" onclick="supprimerElt('${type}', ${i.id})">✕</button>
-            </div>
-        </div>
-    `).join('');
-}
-
-// --- ACTIONS DEPUIS LA BARRE LATÉRALE ---
-
-async function supprimerElt(type, id) {
-    if (confirm("Supprimer cet élément ?")) {
-        const res = await apiFetch({ action: 'supprimer_equipement', id: `${type}_${id}` });
-        if (res.succes) initialiserEditeur();
-        else alert("Erreur : " + (res.erreur || "Inconnue"));
-    }
-}
-
-// --- GESTION DE LA FENÊTRE MODALE D'ÉDITION ---
-
-// Remplace ton ancienne fonction editerElt par celle-ci
-function editerElt(type, id, ancienNom) {
-    elementEnEdition = { type, id, ancienNom };
-    
-    const libelles = { 'routeurs': 'Routeur', 'switchs': 'Switch', 'reseaux': 'Réseau', 'hotes': 'Hôte' };
-    document.getElementById('modal-titre').textContent = `${libelles[type]} : ${ancienNom}`;
-    document.getElementById('modal-input-nom').value = ancienNom;
-    
-    const sectionInterfaces = document.getElementById('section-interfaces');
-    if (type === 'routeurs') {
-        sectionInterfaces.style.display = 'block';
-        chargerInterfacesRouteur(id); // <-- NOUVEAU : On charge les données de la BDD !
-    } else {
-        sectionInterfaces.style.display = 'none';
-    }
-
-    document.getElementById('form-ajout-interface').classList.add('hidden');
-    document.getElementById('icon-toggle-interface').textContent = '▶';
-    
-    document.getElementById('modal-edition').classList.remove('hidden');
-}
-
-function fermerModal() {
-    document.getElementById('modal-edition').classList.add('hidden');
-    elementEnEdition = null;
-}
-
-function toggleInterfaceForm() {
-    const form = document.getElementById('form-ajout-interface');
-    const icon = document.getElementById('icon-toggle-interface');
-    
-    if (form.classList.contains('hidden')) {
-        form.classList.remove('hidden');
-        icon.textContent = '▼';
-    } else {
-        form.classList.add('hidden');
-        icon.textContent = '▶';
-    }
-}
-
-async function sauvegarderEdition() {
-    if (!elementEnEdition) return;
-    
-    const nouveauNom = document.getElementById('modal-input-nom').value.trim();
-    
-    // On sauvegarde uniquement si le nom a été modifié
-    if (nouveauNom && nouveauNom !== elementEnEdition.ancienNom.trim()) {
-        const res = await apiFetch({ 
-            action: 'renommer_equipement', 
-            type: elementEnEdition.type, 
-            id: elementEnEdition.id, 
-            nom: nouveauNom 
-        });
-
-        if (res.succes) {
-            fermerModal();
-            initialiserEditeur();
-        } else {
-            alert("Erreur lors du renommage : " + (res.erreur || "Action refusée par le serveur."));
-        }
-    } else {
-        fermerModal(); // Pas de changement
-    }
-}
-
-// ----------------------------------------------
-
-async function ajouterElement() {
-    if (ongletActif === 'routes') {
-        alert("La gestion des routes statiques sera implémentée prochainement.");
-        return;
-    }
-    
-    const noms = { 'routeurs': 'R', 'switchs': 'SW', 'reseaux': 'LAN', 'hotes': 'PC' };
-    const prefixe = noms[ongletActif] || 'E';
-    const nom = prompt(`Nom de l'élément :`, `${prefixe}-${nodes.length + 1}`);
-    
-    if (nom) {
-        const res = await apiFetch({ action: 'creer_equipement', scenario_id: CURRENT_SCENARIO_ID, type: ongletActif, nom: nom });
-        if (res.succes) initialiserEditeur();
-        else alert("Erreur lors de la création : " + (res.erreur || "Inconnue"));
-    }
-}
-
-// --- DESSIN DU CANEVAS VIS.JS ---
-
-function dessinerReseau() {
-    const container = document.getElementById('network-canvas');
-    nodes.clear(); edges.clear();
-    const allNodes = [];
-    
-    const styleBase = { 
-        color: { background: '#ffffff', border: '#d1d5db', highlight: { background: '#f9fafb', border: '#9ca3af' } },
-        font: { color: '#1f2937', face: 'system-ui', size: 14 },
+    // Hôte désactivé : gris neutre
+    HOTE_DESACTIVE: {
+        shape: 'ellipse',
+        color: {
+            background: '#9CA3AF',
+            border:     '#6B7280',
+            highlight:  { background: '#6B7280', border: '#4B5563' },
+            hover:      { background: '#6B7280', border: '#9CA3AF' },
+        },
+        font:        { color: '#FFFFFF', face: 'Arial', size: 12 },
         borderWidth: 1,
-        shadow: { enabled: true, color: 'rgba(0,0,0,0.04)', size: 4, x: 2, y: 2 }
-    };
+        borderWidthSelected: 2,
+        widthConstraint: { minimum: 100 },
+    },
+};
 
-    const conf = { 
-        routeurs: { shape: 'box', ...styleBase, shapeProperties: { borderRadius: 0 } },
-        switchs:  { shape: 'box', ...styleBase, color: { background: '#f0f9ff', border: '#bae6fd' }, shapeProperties: { borderRadius: 4 } },
-        reseaux:  { shape: 'ellipse', ...styleBase }, 
-        hotes:    { shape: 'box', ...styleBase, shapeProperties: { borderRadius: 8 } }
-    };
+const STYLE_LIEN = {
+    FILAIRE: {
+        color: { color: '#94A3B8', highlight: '#2563EB', hover: '#3B82F6' },
+        width: 2,
+        smooth: { type: 'continuous' },
+        arrows: {},
+        font: { color: '#64748B', size: 10, face: 'Arial', align: 'middle' },
+    },
+    P2P: {
+        color: { color: '#CBD5E1', highlight: '#2563EB', hover: '#3B82F6' },
+        width: 2,
+        dashes: [6, 3],
+        smooth: { type: 'continuous' },
+        arrows: {},
+        font: { color: '#64748B', size: 10, face: 'Arial', align: 'middle' },
+    },
+};
 
-    ['routeurs', 'switchs', 'reseaux', 'hotes'].forEach(type => {
-        (donneesScenario[type] || []).forEach(item => {
-            allNodes.push({
-                id: `${type}_${item.id}`, 
-                label: item.nom,
-                x: item.pos_x ? parseInt(item.pos_x) : undefined,
-                y: item.pos_y ? parseInt(item.pos_y) : undefined,
-                ...conf[type]
+// =============================================================================
+// CLASSE : MoteurVisuel
+// =============================================================================
+
+class MoteurVisuel {
+
+    constructor(idConteneur, topologie) {
+        this._noeuds          = new vis.DataSet();
+        this._liens           = new vis.DataSet();
+        this._reseau          = null;
+        this._timersAnimation = [];
+
+        this._initialiserDepuisTopologie(topologie);
+        this._creerReseau(idConteneur);
+    }
+
+    // =========================================================================
+    // INITIALISATION
+    // =========================================================================
+
+    _initialiserDepuisTopologie(topologie) {
+        /* --- Routeurs --- */
+        (topologie.routeurs || []).forEach(r => {
+            this._noeuds.add({
+                id:    `R${r.id_routeur}`,
+                id_db: r.id_routeur,
+                type:  'routeur',
+                label: r.nom,
+                x:     parseFloat(r.pos_x) || 0,
+                y:     parseFloat(r.pos_y) || 0,
+                ...STYLE_NOEUD.ROUTEUR,
             });
         });
-    });
-    nodes.add(allNodes);
 
-    const edgeStyle = { color: '#9ca3af', width: 1, smooth: false };
+        /* --- Switchs --- */
+        (topologie.switchs || []).forEach(s => {
+            this._noeuds.add({
+                id:    `SW${s.id_switch}`,
+                id_db: s.id_switch,
+                type:  'switch',
+                label: `◆ ${s.nom}`,
+                x:     parseFloat(s.pos_x) || 0,
+                y:     parseFloat(s.pos_y) || 0,
+                ...STYLE_NOEUD.SWITCH,
+            });
+        });
 
-    (donneesScenario.liaisons_hs || []).forEach(l => {
-        edges.add({ id: `lhs_${l.hote_id}_${l.switch_id}`, from: `hotes_${l.hote_id}`, to: `switchs_${l.switch_id}`, ...edgeStyle });
-    });
+        /* --- Hôtes (avec CIDR du réseau dans le label) --- */
+        (topologie.hotes || []).forEach(h => {
+            const actif  = h.id_reseau !== null && h.id_reseau !== undefined;
+            /* Recherche du réseau pour afficher IP/masque */
+            const reseau = (topologie.reseaux || []).find(r => r.id_reseau == h.id_reseau);
+            const ipLabel = (actif && reseau)
+                ? `${h.adresse_ip || '?'}/${reseau.masque}`
+                : (h.adresse_ip || '?');
+            this._noeuds.add({
+                id:    `H${h.id_hote}`,
+                id_db: h.id_hote,
+                type:  'hote',
+                label: `${h.nom}\n${ipLabel}`,
+                x:     parseFloat(h.pos_x) || 0,
+                y:     parseFloat(h.pos_y) || 0,
+                ...(actif ? STYLE_NOEUD.HOTE_ACTIF : STYLE_NOEUD.HOTE_DESACTIVE),
+            });
+        });
 
-    (donneesScenario.liaisons_is || []).forEach(l => {
-        edges.add({ id: `lis_${l.interface_id}_${l.switch_id}`, from: `routeurs_${l.routeur_id}`, to: `switchs_${l.switch_id}`, ...edgeStyle });
-    });
+        /* --- Câbles Hôte ↔ Switch --- */
+        (topologie.cables?.hote_switch || []).forEach(c => {
+            this._liens.add({
+                id:   `CHS_${c.id_switch}_${c.id_hote}`,
+                from: `H${c.id_hote}`,
+                to:   `SW${c.id_switch}`,
+                ...STYLE_LIEN.FILAIRE,
+            });
+        });
 
-    if (!network) {
-        network = new vis.Network(container, { nodes, edges }, {
-            locale: 'fr',
-            physics: false,
-            interaction: { hover: true },
-            manipulation: {
-                enabled: true,
-                initiallyActive: true,
-                addNode: false,
-                addEdge: async (data, callback) => {
-                    const res = await apiFetch({ action: 'creer_liaison', from: data.from, to: data.to });
-                    if (res.succes) { callback(data); initialiserEditeur(); }
-                    else { alert("Impossible de relier : " + (res.erreur || "Raison inconnue")); }
-                },
-                deleteNode: async (data, callback) => {
-                    if (confirm("Supprimer cet équipement ?")) {
-                        const res = await apiFetch({ action: 'supprimer_equipement', id: data.nodes[0] });
-                        if (res.succes) { callback(data); initialiserEditeur(); }
-                        else { alert("Erreur : " + (res.erreur || "Inconnue")); }
+        /* --- Câbles Interface ↔ Switch --- */
+        (topologie.cables?.interface_switch || []).forEach(c => {
+            const iface = (topologie.interfaces || []).find(i => i.id_interface === c.id_interface);
+            if (iface) {
+                this._liens.add({
+                    id:    `CIS_${c.id_interface}_${c.id_switch}`,
+                    from:  `R${iface.id_routeur}`,
+                    to:    `SW${c.id_switch}`,
+                    title: `${iface.nom} (${iface.adresse_ip}/${iface.masque})`,
+                    ...STYLE_LIEN.FILAIRE,
+                });
+            }
+        });
+
+        /* --- Câbles Interface ↔ Interface (P2P) --- */
+        (topologie.cables?.interface_interface || []).forEach(c => {
+            const i1 = (topologie.interfaces || []).find(i => i.id_interface === c.id_interface);
+            const i2 = (topologie.interfaces || []).find(i => i.id_interface === c.id_interface_1);
+            if (i1 && i2) {
+                this._liens.add({
+                    id:    `CII_${c.id_interface}_${c.id_interface_1}`,
+                    from:  `R${i1.id_routeur}`,
+                    to:    `R${i2.id_routeur}`,
+                    title: `${i1.nom} ↔ ${i2.nom}`,
+                    ...STYLE_LIEN.P2P,
+                });
+            }
+        });
+    }
+
+    _creerReseau(idConteneur) {
+        const conteneur = document.getElementById(idConteneur);
+        if (!conteneur) {
+            console.error('[MoteurVisuel] Conteneur DOM introuvable :', idConteneur);
+            return;
+        }
+
+        /* S'il n'y a aucun nœud, on centre quand même le canvas */
+        const options = {
+            physics: { enabled: false },
+            interaction: {
+                hover:             true,
+                tooltipDelay:      150,
+                multiselect:       false,
+                dragView:          true,
+                zoomView:          true,
+                navigationButtons: false,
+                keyboard:          false,
+            },
+            manipulation: { enabled: false },
+            layout:       { improvedLayout: false },
+            /* Fond blanc pour le canvas vis.js */
+            nodes: {
+                shapeProperties: { interpolation: false },
+            },
+        };
+
+        this._reseau = new vis.Network(
+            conteneur,
+            { nodes: this._noeuds, edges: this._liens },
+            options
+        );
+
+        this._enregistrerEvenements();
+    }
+
+    // =========================================================================
+    // ÉVÉNEMENTS
+    // =========================================================================
+
+    _enregistrerEvenements() {
+
+        /* Clic sur un nœud → panneau de propriétés */
+        this._reseau.on('click', (params) => {
+            if (params.nodes.length > 0) {
+                const idNoeud = params.nodes[0];
+                const noeud   = this._noeuds.get(idNoeud);
+                if (!noeud) return;
+
+                switch (noeud.type) {
+                    case 'routeur': afficherPanneauRouteur(noeud.id_db, noeud.label); break;
+                    case 'switch':  afficherPanneauSwitch(noeud.id_db, noeud.label); break;
+                    case 'hote': {
+                        const nom = noeud.label.split('\n')[0];
+                        afficherPanneauHote(noeud.id_db, nom);
+                        break;
                     }
-                },
-                deleteEdge: async (data, callback) => {
-                    if (confirm("Débrancher ce câble ?")) {
-                        const res = await apiFetch({ action: 'supprimer_liaison', id: data.edges[0] });
-                        if (res.succes) { callback(data); initialiserEditeur(); }
-                        else { alert("Erreur : " + (res.erreur || "Inconnue")); }
-                    }
+                }
+            } else if (params.nodes.length === 0 && params.edges.length === 0) {
+                fermerPanneau();
+            }
+        });
+
+        /* Survol → tooltip enrichi */
+        this._reseau.on('hoverNode', (params) => {
+            const noeud = this._noeuds.get(params.node);
+            if (!noeud) return;
+            let titre = '';
+            if (noeud.type === 'routeur') {
+                const ifaces = (window.topologieCourante?.interfaces || [])
+                    .filter(i => i.id_routeur === noeud.id_db)
+                    .map(i => `  ${i.nom}: ${i.adresse_ip}/${i.masque}`)
+                    .join('\n');
+                titre = `🔲 Routeur: ${noeud.label}\n${ifaces || '  (aucune interface)'}`;
+            } else if (noeud.type === 'switch') {
+                titre = `⬛ Switch: ${noeud.label}`;
+            } else if (noeud.type === 'hote') {
+                const h = (window.topologieCourante?.hotes || []).find(h => h.id_hote === noeud.id_db);
+                titre = `💻 ${h?.nom || noeud.label}\nIP: ${h?.adresse_ip || '?'}\nGW: ${h?.passerelle_ip || '?'}\nStatut: ${h?.id_reseau ? 'Actif' : 'Désactivé'}`;
+            }
+            if (titre) this._noeuds.update({ id: noeud.id, title: titre });
+        });
+
+        /* Fin de drag → sauvegarde position en BDD */
+        this._reseau.on('dragEnd', async (params) => {
+            if (!params.nodes?.length) return;
+            for (const idNoeud of params.nodes) {
+                const pos   = this._reseau.getPosition(idNoeud);
+                const noeud = this._noeuds.get(idNoeud);
+                if (!noeud || noeud.type === 'paquet') continue;
+
+                try {
+                    let action = '', corps = { x: pos.x, y: pos.y };
+                    if      (noeud.type === 'routeur') { action = 'maj_position_routeur'; corps.id_routeur = noeud.id_db; }
+                    else if (noeud.type === 'switch')  { action = 'maj_position_switch';  corps.id_switch  = noeud.id_db; }
+                    else if (noeud.type === 'hote')    { action = 'maj_position_hote';    corps.id_hote    = noeud.id_db; }
+                    if (action) await appelAPI(action, corps);
+                } catch (e) {
+                    console.warn('[MoteurVisuel] Échec sauvegarde position :', e);
                 }
             }
         });
+    }
 
-        network.on("dragEnd", p => {
-            if (p.nodes.length) {
-                const id = p.nodes[0]; 
-                const pos = network.getPositions([id])[id];
-                apiFetch({ action: 'mettre_a_jour_positions', id, x: Math.round(pos.x), y: Math.round(pos.y) });
-            }
+    // =========================================================================
+    // OPÉRATIONS SUR LES NŒUDS
+    // =========================================================================
+
+    ajouterNoeudRouteur(config) {
+        this._noeuds.add({
+            id:    config.id,
+            id_db: config.id_db,
+            type:  'routeur',
+            label: config.label,
+            x:     config.x,
+            y:     config.y,
+            ...STYLE_NOEUD.ROUTEUR,
+        });
+    }
+
+    ajouterNoeudSwitch(config) {
+        this._noeuds.add({
+            id:    config.id,
+            id_db: config.id_db,
+            type:  'switch',
+            label: `◆ ${config.label}`,
+            x:     config.x,
+            y:     config.y,
+            ...STYLE_NOEUD.SWITCH,
+        });
+    }
+
+    ajouterNoeudHote(config) {
+        const style = config.actif ? STYLE_NOEUD.HOTE_ACTIF : STYLE_NOEUD.HOTE_DESACTIVE;
+        this._noeuds.add({
+            id:    config.id,
+            id_db: config.id_db,
+            type:  'hote',
+            label: config.label,
+            x:     config.x,
+            y:     config.y,
+            ...style,
+        });
+    }
+
+    renommerNoeud(idNoeud, nouveauNom) {
+        const noeud = this._noeuds.get(idNoeud);
+        if (!noeud) return;
+        if (noeud.type === 'hote') {
+            const parties = noeud.label.split('\n');
+            parties[0] = nouveauNom;
+            this._noeuds.update({ id: idNoeud, label: parties.join('\n') });
+        } else {
+            this._noeuds.update({ id: idNoeud, label: nouveauNom });
+        }
+    }
+
+    mettreAJourHote(idHote, nom, ip, actif) {
+        const style = actif ? STYLE_NOEUD.HOTE_ACTIF : STYLE_NOEUD.HOTE_DESACTIVE;
+        this._noeuds.update({ id: `H${idHote}`, label: `${nom}\n${ip}`, ...style });
+    }
+
+    supprimerNoeud(idNoeud) {
+        const liens = this._reseau.getConnectedEdges(idNoeud);
+        this._liens.remove(liens);
+        this._noeuds.remove(idNoeud);
+    }
+
+    supprimerLiensInterface(idInterface) {
+        const aSupprimer = this._liens.getIds().filter(id =>
+            id.includes(`_${idInterface}_`) || id.endsWith(`_${idInterface}`)
+        );
+        this._liens.remove(aSupprimer);
+    }
+
+    /**
+     * Supprime un lien spécifique par son ID vis.js.
+     * @param {string} idLien Identifiant du lien à supprimer
+     */
+    supprimerLien(idLien) {
+        if (this._liens.get(idLien)) {
+            this._liens.remove(idLien);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Retourne tous les liens connectés à un nœud donné avec leurs métadonnées.
+     * @param {string} idNoeud Identifiant vis.js du nœud
+     * @returns {Array} Liste des liens avec id, from, to, title
+     */
+    getLiensNoeud(idNoeud) {
+        const idLiens = this._reseau.getConnectedEdges(idNoeud);
+        return idLiens.map(idLien => this._liens.get(idLien)).filter(Boolean);
+    }
+
+    ajouterLienHoteSwitch(idHote, idSwitch) {
+        const idLien = `CHS_${idSwitch}_${idHote}`;
+        if (!this._liens.get(idLien)) {
+            this._liens.add({ id: idLien, from: `H${idHote}`, to: `SW${idSwitch}`, ...STYLE_LIEN.FILAIRE });
+        }
+    }
+
+    ajouterLienInterfaceSwitch(idInterface, idSwitch, idRouteur, nomInterface, ip, masque) {
+        const idLien = `CIS_${idInterface}_${idSwitch}`;
+        if (!this._liens.get(idLien)) {
+            this._liens.add({
+                id: idLien, from: `R${idRouteur}`, to: `SW${idSwitch}`,
+                title: `${nomInterface} (${ip}/${masque})`,
+                ...STYLE_LIEN.FILAIRE,
+            });
+        }
+    }
+
+    ajouterLienInterfaceInterface(idI1, idI2, idR1, idR2, nomI1, nomI2) {
+        const idLien = `CII_${idI1}_${idI2}`;
+        if (!this._liens.get(idLien)) {
+            this._liens.add({
+                id: idLien, from: `R${idR1}`, to: `R${idR2}`,
+                title: `${nomI1} ↔ ${nomI2}`,
+                ...STYLE_LIEN.P2P,
+            });
+        }
+    }
+
+    // =========================================================================
+    // ANIMATION DE SIMULATION
+    // =========================================================================
+
+    animer(sauts) {
+        this.reinitialiserAnimation();
+        const carteIP       = this._construireCartographieIP();
+        const DELAI_PAR_SAUT = 900;
+
+        sauts.forEach((saut, idx) => {
+            const t = setTimeout(() => {
+                const idNoeud = carteIP[saut.ip];
+                if (!idNoeud) return;
+
+                const estErreur = saut.statut === 'erreur_ttl';
+                this._mettreEnSurbrillance(idNoeud, estErreur);
+
+                if (idx < sauts.length - 1) {
+                    const suivant = carteIP[sauts[idx + 1].ip];
+                    if (suivant) this._animerLien(idNoeud, suivant, estErreur);
+                }
+
+                this._reseau.focus(idNoeud, {
+                    scale:     1.2,
+                    animation: { duration: 400, easingFunction: 'easeInOutQuad' },
+                });
+            }, idx * DELAI_PAR_SAUT);
+            this._timersAnimation.push(t);
+        });
+
+        const tFinal = setTimeout(
+            () => this._reinitialiserSurbrillances(),
+            sauts.length * DELAI_PAR_SAUT + 500
+        );
+        this._timersAnimation.push(tFinal);
+    }
+
+    _construireCartographieIP() {
+        const carte = {};
+        const topo  = window.topologieCourante;
+        (topo.hotes      || []).forEach(h => { if (h.adresse_ip)  carte[h.adresse_ip]  = `H${h.id_hote}`; });
+        (topo.interfaces || []).forEach(i => { if (i.adresse_ip)  carte[i.adresse_ip]  = `R${i.id_routeur}`; });
+        return carte;
+    }
+
+    _mettreEnSurbrillance(idNoeud, erreur = false) {
+        const couleur = erreur
+            ? { background: '#FEE2E2', border: '#DC2626' }  /* rouge clair sur fond blanc */
+            : { background: '#FEF3C7', border: '#D97706' }; /* jaune/orange pour le paquet */
+        this._noeuds.update({ id: idNoeud, color: couleur });
+    }
+
+    _animerLien(idDepart, idArrivee, erreur = false) {
+        const lien = this._trouverLienEntre(idDepart, idArrivee);
+        if (!lien) return;
+        const couleur = erreur ? '#DC2626' : '#D97706';
+        this._liens.update({ id: lien.id, color: { color: couleur }, width: 4 });
+        setTimeout(() => {
+            const original = lien.dashes ? STYLE_LIEN.P2P : STYLE_LIEN.FILAIRE;
+            this._liens.update({ id: lien.id, ...original });
+        }, 750);
+    }
+
+    _trouverLienEntre(id1, id2) {
+        return this._liens.get().find(l =>
+            (l.from === id1 && l.to === id2) || (l.from === id2 && l.to === id1)
+        ) || null;
+    }
+
+    _reinitialiserSurbrillances() {
+        this._noeuds.get().forEach(n => {
+            let s;
+            if      (n.type === 'routeur') s = STYLE_NOEUD.ROUTEUR;
+            else if (n.type === 'switch')  s = STYLE_NOEUD.SWITCH;
+            else if (n.type === 'hote') {
+                const h = (window.topologieCourante?.hotes || []).find(h => h.id_hote === n.id_db);
+                s = (h?.id_reseau != null && h?.id_reseau !== undefined)
+                    ? STYLE_NOEUD.HOTE_ACTIF
+                    : STYLE_NOEUD.HOTE_DESACTIVE;
+            } else return;
+            this._noeuds.update({ id: n.id, color: s.color, font: s.font });
+        });
+    }
+
+    reinitialiserAnimation() {
+        this._timersAnimation.forEach(t => clearTimeout(t));
+        this._timersAnimation = [];
+        this._reinitialiserSurbrillances();
+        this._liens.get().forEach(l => {
+            const original = l.dashes ? STYLE_LIEN.P2P : STYLE_LIEN.FILAIRE;
+            this._liens.update({ id: l.id, ...original, width: 2 });
         });
     }
 }
-// --- NOUVEAUTÉ : LOGIQUE DES INTERFACES ---
 
-async function chargerInterfacesRouteur(id_routeur) {
-    const container = document.getElementById('liste-interfaces-actives');
-    const msgVide = document.getElementById('liste-interfaces-vides');
-    container.innerHTML = '<p class="texte-muet text-sm">Chargement en cours...</p>';
-    
-    const res = await apiFetch({ action: 'lire_interfaces_routeur', id_routeur: id_routeur });
-    
-    if (res.succes) {
-        if (res.interfaces.length === 0) {
-            container.innerHTML = '';
-            msgVide.style.display = 'block';
-        } else {
-            msgVide.style.display = 'none';
-            // On génère du HTML pour chaque interface trouvée en BDD
-            container.innerHTML = res.interfaces.map(intf => `
-                <div style="display:flex; justify-content:space-between; align-items:center; background:#f9fafb; border:1px solid #e5e7eb; padding:8px 12px; border-radius:6px; margin-bottom:8px;">
-                    <div>
-                        <strong style="font-size:13px; color:#1f2937;">${intf.nom}</strong><br>
-                        <span style="font-size:12px; color:#6b7280;">${intf.adresse_ip} / ${intf.masque}</span>
-                    </div>
-                    <button style="background:none; border:none; color:#ef4444; font-weight:bold; cursor:pointer;" onclick="supprimerInterfaceRouteur(${intf.id}, ${id_routeur})">✕</button>
-                </div>
-            `).join('');
-        }
+// =============================================================================
+// POINT D'ENTRÉE UNIQUE
+// moteur-visuel.js s'initialise ici et expose `moteurVisuel` globalement.
+// application-client.js sera exécuté APRÈS, il pourra donc l'utiliser.
+// =============================================================================
+
+/** @type {MoteurVisuel} Instance globale du moteur visuel */
+var moteurVisuel = null;
+
+/**
+ * Initialise le moteur visuel.
+ * Appelé par initEditeur() depuis application-client.js,
+ * qui coordonne l'ordre d'init des deux modules.
+ */
+function _initMoteurVisuel() {
+    if (typeof vis === 'undefined') {
+        console.error('[MoteurVisuel] vis.js introuvable — vérifiez le CDN.');
+        return false;
     }
-}
-
-async function ajouterInterfaceRouteur() {
-    if (!elementEnEdition || elementEnEdition.type !== 'routeurs') return;
-    
-    const nom = document.getElementById('nouvelle-int-nom').value.trim();
-    const ip = document.getElementById('nouvelle-int-ip').value.trim();
-    const masque = document.getElementById('nouvelle-int-masque').value.trim();
-    
-    if(!nom || !ip || !masque) {
-        alert("Veuillez remplir tous les champs (Nom, IP, Masque).");
-        return;
+    if (typeof TOPOLOGIE === 'undefined' || typeof SCENARIO_ID === 'undefined') {
+        console.error('[MoteurVisuel] Variables PHP TOPOLOGIE/SCENARIO_ID non disponibles.');
+        return false;
     }
-
-    const res = await apiFetch({
-        action: 'creer_interface_routeur',
-        id_routeur: elementEnEdition.id,
-        nom: nom,
-        ip: ip,
-        masque: parseInt(masque)
-    });
-
-    if(res.succes) {
-        // Vider le formulaire après succès
-        document.getElementById('nouvelle-int-nom').value = '';
-        document.getElementById('nouvelle-int-ip').value = '';
-        document.getElementById('nouvelle-int-masque').value = '';
-        
-        // Cacher le formulaire et recharger la liste dynamiquement
-        toggleInterfaceForm();
-        chargerInterfacesRouteur(elementEnEdition.id);
-    } else {
-        alert("Erreur : " + (res.erreur || "Impossible d'ajouter l'interface."));
-    }
-}
-
-async function supprimerInterfaceRouteur(id_interface, id_routeur) {
-    if(confirm("Voulez-vous vraiment supprimer cette interface ?")) {
-        const res = await apiFetch({ action: 'supprimer_interface', id_interface: id_interface });
-        if(res.succes) {
-            chargerInterfacesRouteur(id_routeur); // On recharge l'affichage instantanément
-        } else {
-            alert("Erreur lors de la suppression.");
-        }
-    }
+    moteurVisuel = new MoteurVisuel('canevas-topologie', TOPOLOGIE);
+    console.info('[MoteurVisuel] ✓ Initialisé — Scénario #' + SCENARIO_ID);
+    return true;
 }
