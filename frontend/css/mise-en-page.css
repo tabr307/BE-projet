@@ -1,0 +1,83 @@
+/**
+ * mise-en-page.css
+ * Structure globale de l'application et conteneurs principaux.
+ */
+
+/* 1. Reset et Base */
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background-color: var(--bg-clair);
+    color: var(--texte-principal);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* 2. En-tête (Navigation) */
+.barre-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 2rem;
+    background: var(--blanc);
+    border-bottom: 1px solid var(--bordure);
+    height: 60px; /* Hauteur fixe pour la cohérence */
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.logo {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--noir);
+    text-decoration: none;
+}
+
+.menu-utilisateur {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.9rem;
+}
+
+.lien-deconnexion {
+    color: #6366f1; /* Bleu/Violet comme sur ta capture */
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.lien-deconnexion:hover {
+    text-decoration: underline;
+}
+
+/* 3. Conteneurs de contenu */
+.conteneur {
+    max-width: 1200px; /* Un peu plus large pour les grilles */
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+}
+
+/* 4. Mise en page de l'Authentification (Centrage vertical/horizontal) */
+.auth-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: calc(100vh - 60px); /* Prend toute la hauteur moins la nav si présente */
+    padding: 1rem;
+}
+
+/* 5. Utilitaires de section */
+.en-tete-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.en-tete-section h2 {
+    margin: 0;
+    font-size: 1.8rem;
+    font-weight: 700;
+}
