@@ -1,52 +1,78 @@
 <?php
 /**
- * backend/noyau/GestionnaireAuth.php
+ * core/GestionnaireAuth.php
  * Logique métier pour la sécurité, l'authentification et les sessions.
+ * Conforme à la nouvelle arborescence et au SGBD WBS 1.1.
  */
-require_once __DIR__ . '/../modeles/Utilisateur.php';
+require_once __DIR__ . '/../src/Model/Utilisateur.php';
 
 class GestionnaireAuth {
+
+    /**
+     * Initialise la session avec des paramètres de sécurité stricts.
+     */
+    public static function initialiserSession(): void {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_set_cookie_params([
+                'lifetime' => 3600,
+                'path'     => '/',
+                'domain'   => '', 
+                'secure'   => isset($_SERVER['HTTPS']), // True en production HTTPS
+                'httponly' => true,                     // Bloque l'accès au cookie via JS
+                'samesite' => 'Strict'                  // Bloque l'envoi cross-origin
+            ]);
+            session_start();
+        }
+    }
+
     /**
      * Valide les identifiants et initialise une session sécurisée.
-     * 
-     * @param string $username Le pseudo saisi par l'utilisateur.
-     * @param string $password Le mot de passe en clair.
-     * @param PDO $pdo L'instance de connexion à la base de données.
-     * @return bool True si la connexion est établie, sinon False.
      */
     public static function login(string $username, string $password, PDO $pdo): bool {
+        self::initialiserSession();
+        
         $modele = new Utilisateur($pdo);
         $user = $modele->trouverParNom($username);
 
-        // 1. Vérification de l'existence de l'utilisateur et du hash SHA-256
-        // FIX : On utilise 'mot_de_passe_hash' selon le nouveau MLD
+        // Vérification d'existence et validation du hachage cryptographique
         if ($user && hash('sha256', $password) === $user['mot_de_passe_hash']) {
             
-            // 2. Sécurité : Régénération de l'ID de session pour éviter la fixation de session
-            if (session_status() === PHP_SESSION_ACTIVE) {
-                session_regenerate_id(true);
-            }
+            // Prévention stricte des attaques de fixation de session
+            session_regenerate_id(true);
 
-            // 3. Stockage des informations essentielles en session
-            // FIX : Alignement sur 'id_user' et 'identifiant' de la BDD
-            $_SESSION['utilisateur_id'] = $user['id_user'];
-            $_SESSION['utilisateur_nom'] = $user['identifiant']; // Utilisé dans editeur.php
-            $_SESSION['role'] = $user['role'];
+            // Alignement sur le nouveau MLD (colonne 'id')
+            $_SESSION['utilisateur_id']  = $user['id'];
+            $_SESSION['utilisateur_nom'] = $user['identifiant'];
+            $_SESSION['role']            = $user['role'];
             
             return true;
         }
 
-        // Échec de l'authentification
         return false;
     }
 
     /**
-     * Termine proprement la session utilisateur.
+     * Termine la session utilisateur avec destruction totale.
      */
     public static function logout(): void {
-        $_SESSION = []; // Vide les variables de session
-        if (session_status() === PHP_SESSION_ACTIVE) {
-            session_destroy();
+        self::initialiserSession();
+        
+        $_SESSION = []; 
+        
+        if (ini_get('session.use_cookies')) {
+            $params = session_get_cookie_params();
+            setcookie(
+                session_name(),
+                '',
+                time() - 42000,
+                $params['path'],
+                $params['domain'],
+                $params['secure'],
+                $params['httponly']
+            );
         }
+        
+        session_destroy();
     }
 }
+?>
