@@ -1,0 +1,17 @@
+# --- Sécurité ---
+.env
+.env.local
+config/configuration.php 
+
+# --- IDE & OS ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# --- Dépendances (si tu ajoutes Composer plus tard) ---
+vendor/
+
+# --- Logs et Temporaire ---
+*.log
+tmp/
