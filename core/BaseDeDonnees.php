@@ -1,6 +1,7 @@
 <?php
-// backend/noyau/BaseDeDonnees.php
-require_once __DIR__ . '/../../configuration.php';
+// core/BaseDeDonnees.php
+// Correction du chemin vers la racine du projet
+require_once __DIR__ . '/../configuration.php';
 
 class BaseDeDonnees {
     private static ?PDO $instance = null;
