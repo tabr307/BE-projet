@@ -1,6 +1,6 @@
 <?php
 // backend/noyau/BaseDeDonnees.php
-require_once __DIR__ . '/../../configuration.php';
+require_once __DIR__ . '/../config/configuration.php';
 
 class BaseDeDonnees {
     private static ?PDO $instance = null;
