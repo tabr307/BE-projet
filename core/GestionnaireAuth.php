@@ -1,12 +1,23 @@
 <?php
-/**
- * core/GestionnaireAuth.php
- * Logique métier pour la sécurité, l'authentification et les sessions.
- * Conforme à la nouvelle arborescence et au SGBD WBS 1.1.
- */
+// core/GestionnaireAuth.php
 require_once __DIR__ . '/../src/Model/Utilisateur.php';
 
 class GestionnaireAuth {
+    private ?PDO $pdo;
+
+    public function __construct(?PDO $pdo = null) {
+        $this->pdo = $pdo;
+    }
+
+    // ... (Gardez les méthodes initialiserSession, login, logout inchangées)
+
+    public function estConnecte(): bool {
+        // L'utilisation de session_status garantit que la session est lisible
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        return isset($_SESSION['utilisateur_id']) && !empty($_SESSION['utilisateur_id']);
+    }
 
     /**
      * Initialise la session avec des paramètres de sécurité stricts.

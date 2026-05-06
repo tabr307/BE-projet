@@ -1,88 +1,57 @@
 <?php
 /**
- * index.php
- * Routeur principal. Gère l'affichage selon l'état de la session réelle.
+ * public/index.php
+ * Contrôleur frontal unique. Gère la session, l'authentification et le routage des vues.
  */
 
-// 1. Sécurisation de la session (doit être AVANT session_start)
+// 1. Sécurisation de la session (Stricte, avant instanciation)
 session_set_cookie_params(['path' => '/']); 
 session_start();
 
-// 2. Mode Débogage (À désactiver en production)
+// Mode Débogage (À commenter en production)
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
-require_once 'configuration.php';
+// 2. Importation des dépendances du noyau
+require_once __DIR__ . '/../config/configuration.php';
+require_once __DIR__ . '/../core/BaseDeDonnees.php';
+require_once __DIR__ . '/../core/GestionnaireAuth.php';
 
-// 3. Logique de connexion
-$idUser = $_SESSION['utilisateur_id'] ?? null;
-$estConnecte = isset($idUser);
-
-// 4. Routage et Whitelist (Sécurité)
-$page = $_GET['page'] ?? 'tableau-de-bord';
-$pagesAutorisees = ['tableau-de-bord', 'editeur', 'connexion'];
-
-// Si non connecté, on impose la page de connexion
-if (!$estConnecte) {
-    $page = 'connexion';
-} 
-
-// Si la page demandée n'existe pas dans la whitelist, retour au tableau de bord
-if (!in_array($page, $pagesAutorisees)) {
-    $page = 'tableau-de-bord';
+// 3. Initialisation de l'accès aux données et de l'authentification
+try {
+    $pdo = BaseDeDonnees::obtenirInstance();
+    $auth = new GestionnaireAuth($pdo);
+} catch (Exception $e) {
+    die("Erreur critique d'initialisation : " . $e->getMessage());
 }
 
+// 4. Sécurisation du routage (Whitelist)
+$pageDemande = $_GET['page'] ?? 'tableau-de-bord';
+$pagesAutorisees = ['tableau-de-bord', 'editeur', 'connexion'];
+
+$page = in_array($pageDemande, $pagesAutorisees) ? $pageDemande : 'tableau-de-bord';
+
+// 5. Contrôle d'accès (Redirection forcée si non authentifié)
+if (!$auth->estConnecte() && $page !== 'connexion') {
+    header('Location: index.php?page=connexion');
+    exit;
+}
+
+// 6. Assemblage du DOM
+// La variable $page est transmise aux templates pour l'injection dynamique des CSS/JS
+require_once __DIR__ . '/../templates/entete.php';
+
+switch ($page) {
+    case 'editeur':
+        require_once __DIR__ . '/../templates/editeur.php';
+        break;
+    case 'tableau-de-bord':
+        require_once __DIR__ . '/../templates/tableau-de-bord.php';
+        break;
+    case 'connexion':
+        require_once __DIR__ . '/../templates/connexion.php';
+        break;
+}
+
+require_once __DIR__ . '/../templates/pied-de-page.php';
 ?>
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulateur IP - <?php echo htmlspecialchars(ucfirst(str_replace('-', ' ', $page))); ?></title>
-    
-    <!-- CSS Globaux -->
-    <link rel="stylesheet" href="frontend/css/variables.css">
-    <link rel="stylesheet" href="frontend/css/mise-en-page.css">
-    <link rel="stylesheet" href="frontend/css/composants.css">
-    
-    <!-- CSS Spécifique à la page de connexion -->
-    <?php if ($page === 'connexion'): ?>
-        <link rel="stylesheet" href="frontend/css/connexion.css">
-    <?php endif; ?>
-
-    <!-- CSS Spécifique à l'éditeur (C'est ce qui manquait pour le layout flex) -->
-    <?php if ($page === 'editeur'): ?>
-        <link rel="stylesheet" href="frontend/css/editeur.css">
-    <?php endif; ?>
-</head>
-<body>
-
-    <?php 
-    // On n'affiche l'entête que si l'utilisateur est connecté
-    if ($estConnecte) {
-        include_once 'frontend/partiels/entete.php';
-    } 
-    ?>
-
-    <main id="app">
-        <?php 
-        $cheminVue = "frontend/vues/{$page}.php";
-        if (file_exists($cheminVue)) {
-            include_once $cheminVue;
-        } else {
-            echo "<div class='conteneur'><p>Erreur : La vue '{$page}' est introuvable.</p></div>";
-        }
-        ?>
-    </main>
-
-    <!-- Scripts globaux -->
-    <script src="frontend/js/application-client.js"></script>
-    
-    <!-- Script spécifique à l'éditeur (vis.js) -->
-    <?php if ($page === 'editeur'): ?>
-        <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
-        <script src="frontend/js/moteur-visuel.js"></script>
-    <?php endif; ?>
-
-</body>
-</html>

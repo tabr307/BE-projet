@@ -24,7 +24,7 @@
         <?php endif; ?>
 
         <!-- Formulaire de Connexion -->
-        <form id="login-form" action="backend/api.php?action=login" method="POST" class="auth-form">
+        <form id="login-form" action="api.php?action=login" method="POST" class="auth-form">
             <div class="form-group">
                 <label for="login-username">Nom d'utilisateur</label>
                 <input type="text" id="login-username" name="username" placeholder="votre_pseudo" required autofocus>
@@ -37,7 +37,7 @@
         </form>
 
         <!-- Formulaire d'Inscription (masqué par défaut via la classe .hidden) -->
-        <form id="register-form" action="backend/api.php?action=register" method="POST" class="auth-form hidden">
+        <form id="register-form" action="api.php?action=register" method="POST" class="auth-form hidden">
             <div class="form-group">
                 <label for="reg-username">Choisir un pseudo</label>
                 <input type="text" id="reg-username" name="username" placeholder="votre_pseudo" required>

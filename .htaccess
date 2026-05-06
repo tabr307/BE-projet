@@ -2,18 +2,34 @@
 # SECURISATION GLOBALE DES SESSIONS PHP (WBS 2.0)
 # =============================================================================
 
-# Bloque l'accès aux cookies de session via JavaScript (Attaques XSS)
-php_flag session.cookie_httponly on
+## Bloque l'accès aux cookies de session via JavaScript (Attaques XSS)
+#php_flag session.cookie_httponly on
+#
+## Force l'envoi du cookie uniquement sur canal chiffré (HTTPS)
+#php_flag session.cookie_secure on
+#
+## Bloque l'envoi du cookie lors des requêtes cross-origin (Attaques CSRF)
+#php_value session.cookie_samesite "Strict"
+#
+## Rejette les ID de session non initialisés par le serveur (Session Fixation)
+#php_flag session.use_strict_mode on
+#
+## Masque la version de PHP dans les en-têtes HTTP (Attaques de reconnaissance)
+#php_flag expose_php off
 
-# Force l'envoi du cookie uniquement sur canal chiffré (HTTPS)
-# Note : À désactiver temporairement si l'environnement de dev local n'a pas de SSL
-php_flag session.cookie_secure on
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    # Définition de la base de réécriture pour un sous-répertoire
+    RewriteBase /simulateur/
 
-# Bloque l'envoi du cookie lors des requêtes cross-origin (Attaques CSRF)
-php_value session.cookie_samesite "Strict"
+    # Si la requête n'est pas un fichier ou un dossier existant à la racine
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    # Et si on n'est pas déjà dans le dossier public
+    RewriteCond %{REQUEST_URI} !^/simulateur/public/
+    # Redirection vers le dossier public
+    RewriteRule ^(.*)$ public/$1 [L]
 
-# Rejette les ID de session non initialisés par le serveur (Session Fixation)
-php_flag session.use_strict_mode on
-
-# Masque la version de PHP dans les en-têtes HTTP (Attaques de reconnaissance)
-php_flag expose_php off
+    # Cas spécifique pour la racine /simulateur/
+    RewriteRule ^$ public/ [L]
+</IfModule>

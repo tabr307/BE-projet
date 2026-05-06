@@ -3,8 +3,8 @@
  * frontend/vues/tableau-de-bord.php
  * Vue adaptée au nouveau schéma SQL (sans la colonne cree_le).
  */
-require_once 'backend/noyau/BaseDeDonnees.php';
-require_once 'backend/modeles/Scenario.php';
+require_once '../core/BaseDeDonnees.php';
+require_once '../src/Model/Scenario.php';
 
 $pdo = BaseDeDonnees::obtenirInstance();
 $scenarioModel = new Scenario($pdo);
