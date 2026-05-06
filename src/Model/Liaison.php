@@ -1,4 +1,8 @@
 <?php
+/**
+ * src/Model/Liaison.php
+ * Implémentation stricte WBS 1.1 - Tables d'associations (N:M)
+ */
 class Liaison {
     private PDO $pdo;
 
@@ -6,45 +10,42 @@ class Liaison {
         $this->pdo = $pdo;
     }
 
-    public function listerLiaisonsHoteSwitch(int $scenario_id): array {
+    public function listerLiaisonsHoteSwitch(int $sid): array {
         $stmt = $this->pdo->prepare("
-            SELECT chs.id_hote AS hote_id, chs.id_switch AS switch_id 
-            FROM CABLER_HOTE_SWITCH chs 
-            JOIN HOTE h ON chs.id_hote = h.id_hote 
-            WHERE h.id_scenario = :sid
+            SELECT lhs.hote_id, lhs.switch_id 
+            FROM liaison_hote_switch lhs
+            JOIN hote h ON lhs.hote_id = h.id
+            WHERE h.scenario_id = :sid
         ");
-        $stmt->execute([':sid' => $scenario_id]);
-        return $stmt->fetchAll();
+        $stmt->execute([':sid' => $sid]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function listerLiaisonsInterfaceSwitch(int $scenario_id): array {
+    public function listerLiaisonsInterfaceSwitch(int $sid): array {
         $stmt = $this->pdo->prepare("
-            SELECT cis.id_interface AS interface_id, cis.id_switch AS switch_id, ir.id_routeur AS routeur_id 
-            FROM CABLER_INTERFACE_SWITCH cis 
-            JOIN INTERFACE ir ON cis.id_interface = ir.id_interface 
-            JOIN Routeur r ON ir.id_routeur = r.id_routeur 
-            WHERE r.id_scenario = :sid
+            SELECT lis.interface_id, lis.switch_id, ir.routeur_id 
+            FROM liaison_interface_switch lis
+            JOIN interface_routeur ir ON lis.interface_id = ir.id
+            JOIN routeur r ON ir.routeur_id = r.id
+            WHERE r.scenario_id = :sid
         ");
-        $stmt->execute([':sid' => $scenario_id]);
-        return $stmt->fetchAll();
+        $stmt->execute([':sid' => $sid]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    
+    public function creerLiaisonHoteSwitch(int $hote_id, int $switch_id): bool {
+        $stmt = $this->pdo->prepare("
+            INSERT INTO liaison_hote_switch (hote_id, switch_id) 
+            VALUES (:hote_id, :switch_id)
+        ");
+        return $stmt->execute([':hote_id' => $hote_id, ':switch_id' => $switch_id]);
     }
 
-    public function cablerHoteSwitch(int $hote_id, int $switch_id): bool {
-        $sql = "INSERT INTO CABLER_HOTE_SWITCH (id_hote, id_switch) VALUES (?, ?) ON CONFLICT (id_switch, id_hote) DO NOTHING";
-        return $this->pdo->prepare($sql)->execute([$hote_id, $switch_id]);
-    }
-
-    public function decablerHoteSwitch(int $hote_id, int $switch_id): bool {
-        return $this->pdo->prepare("DELETE FROM CABLER_HOTE_SWITCH WHERE id_hote = ? AND id_switch = ?")->execute([$hote_id, $switch_id]);
-    }
-
-    public function cablerInterfaceSwitch(int $interface_id, int $switch_id): bool {
-        $sql = "INSERT INTO CABLER_INTERFACE_SWITCH (id_interface, id_switch) VALUES (?, ?) ON CONFLICT (id_interface, id_switch) DO NOTHING";
-        return $this->pdo->prepare($sql)->execute([$interface_id, $switch_id]);
-    }
-
-    public function decablerInterfaceSwitch(int $interface_id, int $switch_id): bool {
-        return $this->pdo->prepare("DELETE FROM CABLER_INTERFACE_SWITCH WHERE id_interface = ? AND id_switch = ?")->execute([$interface_id, $switch_id]);
+    public function creerLiaisonInterfaceSwitch(int $interface_id, int $switch_id): bool {
+        $stmt = $this->pdo->prepare("
+            INSERT INTO liaison_interface_switch (interface_id, switch_id) 
+            VALUES (:interface_id, :switch_id)
+        ");
+        return $stmt->execute([':interface_id' => $interface_id, ':switch_id' => $switch_id]);
     }
 }
-?>

@@ -9,11 +9,12 @@ let edges = new vis.DataSet([]);
 // State global
 let donneesScenario = { routeurs: [], switchs: [], reseaux: [], hotes: [], liaisons_hs: [], liaisons_is: [] };
 let ongletActif = 'routeurs'; 
-let elementEnEdition = null; // NOUVEAU : Retient l'élément en cours de modification
+let elementEnEdition = null;
 
 // --- UTILITAIRE STRICT POUR REQUÊTES AJAX ---
 async function apiFetch(payload) {
-    const req = await fetch('api.php', {
+    const targetUrl = payload.action ? `api.php?action=${payload.action}` : 'api.php';
+    const req = await fetch(targetUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -29,9 +30,8 @@ async function initialiserEditeur() {
     try {
         donneesScenario = await apiFetch({ action: 'charger_scenario', id: CURRENT_SCENARIO_ID });
         
-        // Redirection propre si le scénario n'existe plus
         if (donneesScenario.erreur) {
-            alert("Erreur : " + donneesScenario.erreur);
+            await afficherAlerte("Erreur : " + donneesScenario.erreur);
             window.location.href = 'index.php?page=tableau-de-bord';
             return;
         }
@@ -41,13 +41,12 @@ async function initialiserEditeur() {
         dessinerReseau();
     } catch (e) { 
         console.error("Erreur réseau critique :", e); 
-        alert("Erreur critique de communication avec le serveur.");
+        await afficherAlerte("Erreur critique de communication avec le serveur.");
     }
 }
 
 function switchEquipementTab(type) {
     ongletActif = type;
-    
     const mapNoms = { 'routeurs': 'routeurs', 'switchs': 'switchs', 'reseaux': 'réseaux', 'hotes': 'hôtes', 'routes': 'routes' };
     
     document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -94,16 +93,15 @@ function mettreAJourInventaire(items, type) {
 // --- ACTIONS DEPUIS LA BARRE LATÉRALE ---
 
 async function supprimerElt(type, id) {
-    if (confirm("Supprimer cet élément ?")) {
+    if (await demanderConfirmation("Supprimer cet élément ?")) {
         const res = await apiFetch({ action: 'supprimer_equipement', id: `${type}_${id}` });
-        if (res.succes) initialiserEditeur();
-        else alert("Erreur : " + (res.erreur || "Inconnue"));
+        if (res.statut === 'succes' || res.succes) initialiserEditeur();
+        else await afficherAlerte("Erreur : " + (res.message || res.erreur || "Inconnue"));
     }
 }
 
 // --- GESTION DE LA FENÊTRE MODALE D'ÉDITION ---
 
-// Remplace ton ancienne fonction editerElt par celle-ci
 function editerElt(type, id, ancienNom) {
     elementEnEdition = { type, id, ancienNom };
     
@@ -114,7 +112,7 @@ function editerElt(type, id, ancienNom) {
     const sectionInterfaces = document.getElementById('section-interfaces');
     if (type === 'routeurs') {
         sectionInterfaces.style.display = 'block';
-        chargerInterfacesRouteur(id); // <-- NOUVEAU : On charge les données de la BDD !
+        chargerInterfacesRouteur(id);
     } else {
         sectionInterfaces.style.display = 'none';
     }
@@ -148,7 +146,6 @@ async function sauvegarderEdition() {
     
     const nouveauNom = document.getElementById('modal-input-nom').value.trim();
     
-    // On sauvegarde uniquement si le nom a été modifié
     if (nouveauNom && nouveauNom !== elementEnEdition.ancienNom.trim()) {
         const res = await apiFetch({ 
             action: 'renommer_equipement', 
@@ -157,14 +154,14 @@ async function sauvegarderEdition() {
             nom: nouveauNom 
         });
 
-        if (res.succes) {
+        if (res.statut === 'succes' || res.succes) {
             fermerModal();
             initialiserEditeur();
         } else {
-            alert("Erreur lors du renommage : " + (res.erreur || "Action refusée par le serveur."));
+            await afficherAlerte("Erreur lors du renommage : " + (res.message || res.erreur || "Action refusée par le serveur."));
         }
     } else {
-        fermerModal(); // Pas de changement
+        fermerModal();
     }
 }
 
@@ -172,18 +169,45 @@ async function sauvegarderEdition() {
 
 async function ajouterElement() {
     if (ongletActif === 'routes') {
-        alert("La gestion des routes statiques sera implémentée prochainement.");
+        await afficherAlerte("La gestion des routes statiques sera implémentée prochainement.");
         return;
     }
-    
-    const noms = { 'routeurs': 'R', 'switchs': 'SW', 'reseaux': 'LAN', 'hotes': 'PC' };
-    const prefixe = noms[ongletActif] || 'E';
-    const nom = prompt(`Nom de l'élément :`, `${prefixe}-${nodes.length + 1}`);
-    
+
+    const mapConfigurations = { 
+        'routeurs': { prefixe: 'R', actionEndpoint: 'ajouter_routeur' },
+        'switchs': { prefixe: 'SW', actionEndpoint: 'ajouter_commutateur' },
+        'hotes': { prefixe: 'PC', actionEndpoint: 'ajouter_hote' },
+        'reseaux': { prefixe: 'LAN', actionEndpoint: 'ajouter_sous_reseau' }
+    };
+
+    const configTarget = mapConfigurations[ongletActif];
+    if (!configTarget || !configTarget.actionEndpoint) {
+        await afficherAlerte("Erreur de typage : Élément non qualifié pour l'insertion.");
+        return;
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const scenarioId = typeof CURRENT_SCENARIO_ID !== 'undefined' ? CURRENT_SCENARIO_ID : urlParams.get('id');
+
+    if (!scenarioId) {
+        await afficherAlerte("Erreur critique : Contexte de scénario introuvable.");
+        return;
+    }
+
+    const nom = await demanderSaisie(`Nom de l'élément :`, `${configTarget.prefixe}-${nodes.length + 1}`);
+
     if (nom) {
-        const res = await apiFetch({ action: 'creer_equipement', scenario_id: CURRENT_SCENARIO_ID, type: ongletActif, nom: nom });
-        if (res.succes) initialiserEditeur();
-        else alert("Erreur lors de la création : " + (res.erreur || "Inconnue"));
+        const res = await apiFetch({ 
+            action: configTarget.actionEndpoint, 
+            scenario_id: parseInt(scenarioId, 10), 
+            nom: nom.trim() 
+        });
+        
+        if (res.statut === 'succes') {
+            initialiserEditeur();
+        } else {
+            await afficherAlerte("Erreur système : " + (res.message || "Exception de sérialisation."));
+        }
     }
 }
 
@@ -241,22 +265,64 @@ function dessinerReseau() {
                 initiallyActive: true,
                 addNode: false,
                 addEdge: async (data, callback) => {
-                    const res = await apiFetch({ action: 'creer_liaison', from: data.from, to: data.to });
-                    if (res.succes) { callback(data); initialiserEditeur(); }
-                    else { alert("Impossible de relier : " + (res.erreur || "Raison inconnue")); }
+                    const fromParts = data.from.split('_');
+                    const toParts = data.to.split('_');
+                    const fromType = fromParts[0], fromId = parseInt(fromParts[1]);
+                    const toType = toParts[0], toId = parseInt(toParts[1]);
+
+                    if ((fromType === 'hotes' && toType === 'switchs') || (fromType === 'switchs' && toType === 'hotes')) {
+                        const hoteId = fromType === 'hotes' ? fromId : toId;
+                        const switchId = fromType === 'switchs' ? fromId : toId;
+                        const res = await apiFetch({ action: 'creer_liaison_hote_switch', hote_id: hoteId, switch_id: switchId });
+                        
+                        if (res.statut === 'succes') { callback(data); initialiserEditeur(); }
+                        else { await afficherAlerte("Exception d'insertion : " + (res.message || "Rejet de la base de données.")); }
+                        return;
+                    }
+
+                    if ((fromType === 'routeurs' && toType === 'switchs') || (fromType === 'switchs' && toType === 'routeurs')) {
+                        const routeurId = fromType === 'routeurs' ? fromId : toId;
+                        const switchId = fromType === 'switchs' ? fromId : toId;
+
+                        const reqIntf = await apiFetch({ action: 'lire_interfaces_routeur', id_routeur: routeurId });
+                        if (reqIntf.statut !== 'succes' || !reqIntf.interfaces || reqIntf.interfaces.length === 0) {
+                            await afficherAlerte("Interruption : Le routeur ne possède aucune interface physique. Initialisation de l'environnement de configuration.");
+                            const noeudRouteur = donneesScenario.routeurs.find(r => r.id === routeurId);
+                            const nomRouteur = noeudRouteur ? noeudRouteur.nom : `Routeur ${routeurId}`;
+                            editerElt('routeurs', routeurId, nomRouteur);
+                            return;
+                        }
+
+                        let idInterfaceCible;
+
+                        if (reqIntf.interfaces.length === 1) {
+                            idInterfaceCible = reqIntf.interfaces[0].id;
+                        } else {
+                            const selection = await demanderSelectionInterface(reqIntf.interfaces);
+                            if (!selection) return; 
+                            idInterfaceCible = selection;
+                        }
+
+                        const res = await apiFetch({ action: 'creer_liaison_interface_switch', interface_id: idInterfaceCible, switch_id: switchId });
+                        if (res.statut === 'succes') { callback(data); initialiserEditeur(); }
+                        else { await afficherAlerte("Exception d'insertion : " + (res.message || "Rejet transactionnel.")); }
+                        return;
+                    }
+
+                    await afficherAlerte("Violation de contrainte : Topologie de liaison non autorisée par le modèle WBS 1.1.");
                 },
                 deleteNode: async (data, callback) => {
-                    if (confirm("Supprimer cet équipement ?")) {
+                    if (await demanderConfirmation("Confirmer la destruction matérielle ?")) {
                         const res = await apiFetch({ action: 'supprimer_equipement', id: data.nodes[0] });
-                        if (res.succes) { callback(data); initialiserEditeur(); }
-                        else { alert("Erreur : " + (res.erreur || "Inconnue")); }
+                        if (res.statut === 'succes' || res.succes) { callback(data); initialiserEditeur(); }
+                        else { await afficherAlerte("Exception de suppression : " + (res.message || res.erreur || "Requête rejetée.")); }
                     }
                 },
                 deleteEdge: async (data, callback) => {
-                    if (confirm("Débrancher ce câble ?")) {
+                    if (await demanderConfirmation("Confirmer le retrait du câblage ?")) {
                         const res = await apiFetch({ action: 'supprimer_liaison', id: data.edges[0] });
-                        if (res.succes) { callback(data); initialiserEditeur(); }
-                        else { alert("Erreur : " + (res.erreur || "Inconnue")); }
+                        if (res.statut === 'succes' || res.succes) { callback(data); initialiserEditeur(); }
+                        else { await afficherAlerte("Exception de suppression : " + (res.message || res.erreur || "Requête rejetée.")); }
                     }
                 }
             }
@@ -271,7 +337,8 @@ function dessinerReseau() {
         });
     }
 }
-// --- NOUVEAUTÉ : LOGIQUE DES INTERFACES ---
+
+// --- LOGIQUE DES INTERFACES ---
 
 async function chargerInterfacesRouteur(id_routeur) {
     const container = document.getElementById('liste-interfaces-actives');
@@ -280,13 +347,12 @@ async function chargerInterfacesRouteur(id_routeur) {
     
     const res = await apiFetch({ action: 'lire_interfaces_routeur', id_routeur: id_routeur });
     
-    if (res.succes) {
-        if (res.interfaces.length === 0) {
+    if (res.statut === 'succes') {
+        if (!res.interfaces || res.interfaces.length === 0) {
             container.innerHTML = '';
             msgVide.style.display = 'block';
         } else {
             msgVide.style.display = 'none';
-            // On génère du HTML pour chaque interface trouvée en BDD
             container.innerHTML = res.interfaces.map(intf => `
                 <div style="display:flex; justify-content:space-between; align-items:center; background:#f9fafb; border:1px solid #e5e7eb; padding:8px 12px; border-radius:6px; margin-bottom:8px;">
                     <div>
@@ -297,6 +363,8 @@ async function chargerInterfacesRouteur(id_routeur) {
                 </div>
             `).join('');
         }
+    } else {
+        container.innerHTML = '<p class="texte-muet text-sm" style="color:red;">Erreur de lecture API.</p>';
     }
 }
 
@@ -308,7 +376,7 @@ async function ajouterInterfaceRouteur() {
     const masque = document.getElementById('nouvelle-int-masque').value.trim();
     
     if(!nom || !ip || !masque) {
-        alert("Veuillez remplir tous les champs (Nom, IP, Masque).");
+        await afficherAlerte("Validation échouée : Vecteur de paramètres incomplet.");
         return;
     }
 
@@ -317,31 +385,132 @@ async function ajouterInterfaceRouteur() {
         id_routeur: elementEnEdition.id,
         nom: nom,
         ip: ip,
-        masque: parseInt(masque)
+        masque: parseInt(masque, 10)
     });
 
-    if(res.succes) {
-        // Vider le formulaire après succès
+    if (res.statut === 'succes') {
         document.getElementById('nouvelle-int-nom').value = '';
         document.getElementById('nouvelle-int-ip').value = '';
         document.getElementById('nouvelle-int-masque').value = '';
         
-        // Cacher le formulaire et recharger la liste dynamiquement
         toggleInterfaceForm();
         chargerInterfacesRouteur(elementEnEdition.id);
     } else {
-        alert("Erreur : " + (res.erreur || "Impossible d'ajouter l'interface."));
+        await afficherAlerte("Exception d'insertion : " + (res.message || "Rejet de la transaction."));
     }
 }
 
 async function supprimerInterfaceRouteur(id_interface, id_routeur) {
-    if(confirm("Voulez-vous vraiment supprimer cette interface ?")) {
+    if(await demanderConfirmation("Confirmer la destruction de l'interface réseau ?")) {
         const res = await apiFetch({ action: 'supprimer_interface', id_interface: id_interface });
-        if(res.succes) {
-            chargerInterfacesRouteur(id_routeur); // On recharge l'affichage instantanément
+        if (res.statut === 'succes') {
+            chargerInterfacesRouteur(id_routeur);
         } else {
-            alert("Erreur lors de la suppression.");
+            await afficherAlerte("Exception de suppression : " + (res.message || "Rejet de la transaction."));
         }
     }
 }
 
+// --- UTILITAIRES ASYNCHRONES DOM (MODALES) ---
+
+function demanderSelectionInterface(interfaces) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('modal-choix-interface');
+        const select = document.getElementById('select-interface-cible');
+        const btnConfirm = document.getElementById('btn-confirmer-interface');
+        const btnCancel = document.getElementById('btn-annuler-interface');
+
+        select.innerHTML = interfaces.map(i => 
+            `<option value="${i.id}">[ID: ${i.id}] ${i.nom} (${i.adresse_ip}/${i.masque})</option>`
+        ).join('');
+
+        modal.classList.remove('hidden');
+
+        const cleanUp = () => {
+            modal.classList.add('hidden');
+            btnConfirm.removeEventListener('click', onConfirm);
+            btnCancel.removeEventListener('click', onCancel);
+        };
+
+        const onConfirm = () => { cleanUp(); resolve(parseInt(select.value, 10)); };
+        const onCancel = () => { cleanUp(); resolve(null); };
+
+        btnConfirm.addEventListener('click', onConfirm);
+        btnCancel.addEventListener('click', onCancel);
+    });
+}
+
+function afficherAlerte(message) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('modal-alerte');
+        document.getElementById('texte-alerte').textContent = message;
+        modal.classList.remove('hidden');
+
+        const btnOk = document.getElementById('btn-fermer-alerte');
+        
+        const onOk = () => {
+            modal.classList.add('hidden');
+            btnOk.removeEventListener('click', onOk);
+            resolve();
+        };
+        btnOk.addEventListener('click', onOk);
+    });
+}
+
+function demanderConfirmation(message) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('modal-confirmation');
+        document.getElementById('texte-confirmation').textContent = message;
+        modal.classList.remove('hidden');
+
+        const btnConfirm = document.getElementById('btn-valider-confirmation');
+        const btnCancel = document.getElementById('btn-annuler-confirmation');
+
+        const cleanUp = () => {
+            modal.classList.add('hidden');
+            btnConfirm.removeEventListener('click', onConfirm);
+            btnCancel.removeEventListener('click', onCancel);
+        };
+
+        const onConfirm = () => { cleanUp(); resolve(true); };
+        const onCancel = () => { cleanUp(); resolve(false); };
+
+        btnConfirm.addEventListener('click', onConfirm);
+        btnCancel.addEventListener('click', onCancel);
+    });
+}
+
+function demanderSaisie(message, valeurDefaut = '') {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('modal-saisie');
+        document.getElementById('texte-saisie').textContent = message;
+        
+        const input = document.getElementById('input-saisie');
+        input.value = valeurDefaut;
+        modal.classList.remove('hidden');
+        input.focus(); // Place le curseur directement dans le champ de saisie
+
+        const btnConfirm = document.getElementById('btn-valider-saisie');
+        const btnCancel = document.getElementById('btn-annuler-saisie');
+
+        const cleanUp = () => {
+            modal.classList.add('hidden');
+            btnConfirm.removeEventListener('click', onConfirm);
+            btnCancel.removeEventListener('click', onCancel);
+        };
+
+        const onConfirm = () => { cleanUp(); resolve(input.value); };
+        const onCancel = () => { cleanUp(); resolve(null); }; // Retourne null pour simuler l'annulation
+
+        btnConfirm.addEventListener('click', onConfirm);
+        btnCancel.addEventListener('click', onCancel);
+        
+        // Validation rapide avec la touche "Entrée"
+        input.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                onConfirm();
+            }
+        }, { once: true });
+    });
+}
