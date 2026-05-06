@@ -1,9 +1,4 @@
 <?php
-/**
- * src/Model/Routeur.php
- * Modèle CRUD pour la table routeur (WBS 3.0)
- */
-
 class Routeur {
     private PDO $pdo;
 
@@ -11,36 +6,27 @@ class Routeur {
         $this->pdo = $pdo;
     }
 
-    /**
-     * Récupère tous les routeurs d'un scénario précis.
-     */
-    public function listerParScenario(int $scenario_id): array {
-        $stmt = $this->pdo->prepare("
-            SELECT id, nom, pos_x, pos_y, scenario_id 
-            FROM routeur 
-            WHERE scenario_id = :scenario_id
-        ");
-        $stmt->execute([':scenario_id' => $scenario_id]);
+    public function listerParScenario(int $sid): array {
+        $stmt = $this->pdo->prepare("SELECT id, nom, pos_x, pos_y FROM routeur WHERE scenario_id = ?");
+        $stmt->execute([$sid]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    /**
-     * Ajoute un routeur sur le canevas
-     */
-    public function ajouter(int $scenario_id, string $nom, float $pos_x, float $pos_y): int {
-        $stmt = $this->pdo->prepare("
-            INSERT INTO routeur (scenario_id, nom, pos_x, pos_y) 
-            VALUES (:scenario_id, :nom, :pos_x, :pos_y) 
-            RETURNING id
-        ");
-        $stmt->execute([
-            ':scenario_id' => $scenario_id,
-            ':nom'         => $nom,
-            ':pos_x'       => $pos_x,
-            ':pos_y'       => $pos_y
-        ]);
-        // PostgreSQL permet de récupérer l'ID généré via RETURNING
-        return (int) $stmt->fetchColumn(); 
+    public function ajouter(int $sid, string $nom, $x = 100, $y = 100): int {
+        $stmt = $this->pdo->prepare("INSERT INTO routeur (scenario_id, nom, pos_x, pos_y) VALUES (?, ?, ?, ?) RETURNING id");
+        $stmt->execute([$sid, $nom, $x, $y]);
+        return (int)$stmt->fetchColumn();
+    }
+
+    public function renommer(int $id, string $nom): bool {
+        return $this->pdo->prepare("UPDATE routeur SET nom = ? WHERE id = ?")->execute([trim($nom), $id]);
+    }
+
+    public function mettreAJourPosition(int $id, int $x, int $y): bool {
+        return $this->pdo->prepare("UPDATE routeur SET pos_x = ?, pos_y = ? WHERE id = ?")->execute([$x, $y, $id]);
+    }
+
+    public function supprimer(int $id): bool {
+        return $this->pdo->prepare("DELETE FROM routeur WHERE id = ?")->execute([$id]);
     }
 }
-?>

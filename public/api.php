@@ -4,6 +4,11 @@ header('Content-Type: application/json; charset=utf-8');
 
 require_once __DIR__ . '/../config/configuration.php';
 require_once __DIR__ . '/../core/BaseDeDonnees.php';
+require_once __DIR__ . '/../src/Model/Routeur.php';
+require_once __DIR__ . '/../src/Model/Commutateur.php';
+require_once __DIR__ . '/../src/Model/Hote.php';
+require_once __DIR__ . '/../src/Model/SousReseau.php';
+require_once __DIR__ . '/../src/Model/Liaison.php';
 require_once __DIR__ . '/../core/GestionnaireAuth.php';
 require_once __DIR__ . '/../src/Model/Utilisateur.php';
 
@@ -53,6 +58,48 @@ try {
                 }
             }
             exit;
+            break;
+        case 'charger_topologie':
+            $sid = (int)($_GET['scenario_id'] ?? $donnees['scenario_id'] ?? 0);
+            
+            // Instanciation des modèles
+            $res = new SousReseau($pdo);
+            $rou = new Routeur($pdo);
+            $swi = new Commutateur($pdo);
+            $hot = new Hote($pdo);
+            $lia = new Liaison($pdo);
+
+            $reponse = [
+                'statut' => 'succes',
+                'donnees' => [
+                    'sous_reseaux' => $res->listerParScenario($sid),
+                    'routeurs'     => $rou->listerParScenario($sid),
+                    'switchs'      => $swi->listerParScenario($sid),
+                    'hotes'        => $hot->listerParScenario($sid),
+                    'liaisons'     => [
+                        'hote_switch'      => $lia->listerLiaisonsHoteSwitch($sid),
+                        'interface_switch' => $lia->listerLiaisonsInterfaceSwitch($sid)
+                    ]
+                ]
+            ];
+            break;
+            
+        case 'ajouter_routeur':
+            $m = new Routeur($pdo);
+            $id = $m->ajouter($donnees['scenario_id'], $donnees['nom']);
+            $reponse = ['statut' => 'succes', 'id' => $id];
+            break;
+
+        case 'ajouter_commutateur':
+            $m = new Commutateur($pdo);
+            $id = $m->ajouter($donnees['scenario_id'], $donnees['nom']);
+            $reponse = ['statut' => 'succes', 'id' => $id];
+            break;
+
+        case 'ajouter_hote':
+            $m = new Hote($pdo);
+            $id = $m->ajouter($donnees['scenario_id'], $donnees['nom']);
+            $reponse = ['statut' => 'succes', 'id' => $id];
             break;
 
         // Les autres cases (ajouter_routeur, etc.) restent pour les appels AJAX du JS

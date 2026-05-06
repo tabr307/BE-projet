@@ -13,7 +13,7 @@ let elementEnEdition = null; // NOUVEAU : Retient l'élément en cours de modifi
 
 // --- UTILITAIRE STRICT POUR REQUÊTES AJAX ---
 async function apiFetch(payload) {
-    const req = await fetch('backend/api.php', {
+    const req = await fetch('api.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -344,3 +344,4 @@ async function supprimerInterfaceRouteur(id_interface, id_routeur) {
         }
     }
 }
+
