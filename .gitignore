@@ -1,7 +1,7 @@
 # --- Sécurité ---
 .env
 .env.local
-config/configuration.php 
+configuration.php
 
 # --- IDE & OS ---
 .vscode/

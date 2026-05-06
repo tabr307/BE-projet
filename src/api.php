@@ -1,14 +1,15 @@
 <?php
 /**
- * backend/api.php
- * Routage complet (Tableau de bord + Éditeur) avec gestion séparée Switchs/Réseaux et RENOMMAGE.
+ * src/api.php
+ * Routage complet - Mise à jour des chemins suite au merge.
  */
 session_start();
 
-require_once __DIR__ . '/noyau/BaseDeDonnees.php';
-require_once __DIR__ . '/noyau/GestionnaireAuth.php';
-require_once __DIR__ . '/modeles/Scenario.php';
-require_once __DIR__ . '/modeles/Utilisateur.php';
+// Correction des chemins : l'API est dans 'src', les noyaux sont dans '../core'
+require_once __DIR__ . '/../core/BaseDeDonnees.php';
+require_once __DIR__ . '/../core/GestionnaireAuth.php';
+require_once __DIR__ . '/Model/Scenario.php';
+require_once __DIR__ . '/Model/Utilisateur.php';
 
 $donnees = json_decode(file_get_contents('php://input'), true) ?? [];
 $action = trim($donnees['action'] ?? $_POST['action'] ?? $_GET['action'] ?? '');
@@ -113,7 +114,6 @@ try {
             $reponse = ["id" => $id, "succes" => true];
             break;
 
-        // --- NOUVEAU : GESTION DU RENOMMAGE ---
         case 'renommer_equipement':
             $type = $donnees['type'] ?? '';
             $id = (int)($donnees['id'] ?? 0);
@@ -169,17 +169,17 @@ try {
                     $hoteId = ($t1 === 'hotes' ? $id1 : $id2);
                     $switchId = ($t1 === 'switchs' ? $id1 : $id2);
                     $ok = $modele->creerLiaisonHoteSwitch($hoteId, $switchId);
-                    if (!$ok) $erreur_msg = "Rejeté par la BDD (Liaison Hôte-Switch probablement déjà existante).";
+                    if (!$ok) $erreur_msg = "Rejeté par la BDD.";
                 
                 } elseif (($t1 === 'routeurs' && $t2 === 'switchs') || ($t1 === 'switchs' && $t2 === 'routeurs')) {
                     $routeurId = ($t1 === 'routeurs' ? $id1 : $id2);
                     $switchId = ($t1 === 'switchs' ? $id1 : $id2);
                     $intId = $modele->obtenirInterfaceLibre($routeurId);
                     $ok = $modele->creerLiaisonInterfaceSwitch($intId, $switchId);
-                    if (!$ok) $erreur_msg = "Rejeté par la BDD (Liaison Routeur-Switch).";
+                    if (!$ok) $erreur_msg = "Rejeté par la BDD.";
                 
                 } else {
-                    $erreur_msg = "Liaison interdite ($t1 ↔ $t2). Seules Hôte-Switch et Routeur-Switch sont autorisées.";
+                    $erreur_msg = "Liaison interdite ($t1 ↔ $t2).";
                 }
             } catch (Exception $e) {
                 $erreur_msg = "Erreur SQL : " . $e->getMessage();
@@ -188,7 +188,6 @@ try {
             $reponse = $ok ? ["succes" => true] : ["succes" => false, "erreur" => $erreur_msg];
             break;
 
-        // --- GESTION DES INTERFACES DE ROUTEURS ---
         case 'lire_interfaces_routeur':
             $rid = (int)($donnees['id_routeur'] ?? 0);
             $reponse = ["succes" => true, "interfaces" => $modele->lireInterfacesRouteur($rid)];
@@ -202,13 +201,9 @@ try {
             
             if ($rid > 0 && !empty($ip) && !empty($nom)) {
                 $idInt = $modele->creerInterfaceRouteur($rid, $ip, $masque, $nom);
-                if ($idInt > 0) {
-                    $reponse = ["succes" => true, "id" => $idInt];
-                } else {
-                    $reponse = ["succes" => false, "erreur" => "IP invalide ou déjà utilisée sur ce routeur."];
-                }
+                $reponse = ($idInt > 0) ? ["succes" => true, "id" => $idInt] : ["succes" => false, "erreur" => "IP invalide."];
             } else {
-                $reponse = ["succes" => false, "erreur" => "Veuillez remplir tous les champs."];
+                $reponse = ["succes" => false, "erreur" => "Champs manquants."];
             }
             break;
 
@@ -218,7 +213,7 @@ try {
             break;
 
         default:
-            $reponse = ["succes" => false, "erreur" => "Action non reconnue : [" . htmlspecialchars($action) . "]"];
+            $reponse = ["succes" => false, "erreur" => "Action non reconnue."];
             break;
     }
 
