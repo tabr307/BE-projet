@@ -12,11 +12,10 @@ const AppClient = {
     async creerScenario() {
         const nom = prompt("Entrez le nom du nouveau scénario :");
         
-        // Annulation si le champ est vide ou si l'utilisateur clique sur "Annuler"
         if (!nom || nom.trim() === "") return;
 
         try {
-            const reponse = await fetch('backend/api.php', {
+            const reponse = await fetch('api.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
@@ -28,7 +27,6 @@ const AppClient = {
             const resultat = await reponse.json();
 
             if (reponse.ok && resultat.id) {
-                // Succès : on rafraîchit pour voir la nouvelle carte
                 window.location.reload();
             } else {
                 alert("Erreur lors de la création : " + (resultat.erreur || "Inconnue"));
@@ -49,8 +47,8 @@ const AppClient = {
         }
 
         try {
-            const reponse = await fetch('backend/api.php', {
-                method: 'POST',
+            const reponse = await fetch('api.php', {
+                method: 'POST', // Ajuster selon le standard CRUD si DELETE est supporté par l'API
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     action: 'supprimer_scenario', 
@@ -68,6 +66,99 @@ const AppClient = {
         } catch (erreur) {
             console.error("Erreur réseau :", erreur);
         }
+    },
+
+    /**
+     * WBS 5.4.1 - Ouvre l'interface d'édition L3 pour un hôte spécifique.
+     * Récupère l'état actuel de l'hôte via l'API REST.
+     * @param {number} noeudId - Identifiant du nœud Hôte
+     */
+    async ouvrirEditeurL3Hote(noeudId) {
+        try {
+            // Interrogation de l'API REST pour lecture (GET)
+            const reponse = await fetch(`api.php?action=get_hote&id=${noeudId}`, {
+                method: 'GET',
+                headers: { 'Accept': 'application/json' }
+            });
+
+            if (!reponse.ok) throw new Error("Échec de récupération des données de l'hôte");
+            const donneesHote = await reponse.json();
+
+            // Injection des données dans le DOM
+            document.getElementById('input-ip-hote').value = donneesHote.ip || '';
+            document.getElementById('input-masque-hote').value = donneesHote.masque || '';
+            document.getElementById('input-passerelle-hote').value = donneesHote.passerelle || '';
+
+            // Affichage de la modale L3
+            const modale = document.getElementById('editeur-hote');
+            if (modale) modale.style.display = 'block';
+
+            // Purge et attachement de l'écouteur de soumission pour éviter l'empilement d'événements
+            const btnSave = document.getElementById('btn-sauvegarder-hote');
+            if (btnSave) {
+                const nouveauBtnSave = btnSave.cloneNode(true);
+                btnSave.parentNode.replaceChild(nouveauBtnSave, btnSave);
+                nouveauBtnSave.addEventListener('click', () => this.soumettreConfigurationHote(noeudId));
+            }
+        } catch (erreur) {
+            console.error("Erreur I/O lors de la lecture des attributs L3 :", erreur);
+            alert("Erreur de synchronisation avec la base de données.");
+        }
+    },
+
+    /**
+     * WBS 5.4.1 - Valide et transmet la mutation L3 de l'hôte à l'API REST.
+     * @param {number} id - Identifiant de l'hôte
+     */
+    async soumettreConfigurationHote(id) {
+        const ip = document.getElementById('input-ip-hote').value.trim();
+        const masque = document.getElementById('input-masque-hote').value.trim();
+        const passerelle = document.getElementById('input-passerelle-hote').value.trim();
+
+        // Validation stricte du format IPv4 (Regex INET)
+        const regexIPv4 = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+        
+        if (ip !== '' && !regexIPv4.test(ip)) {
+            alert("Violation de contrainte : Format de l'Adresse IP invalide.");
+            return;
+        }
+        if (passerelle !== '' && !regexIPv4.test(passerelle)) {
+            alert("Violation de contrainte : Format de la Passerelle invalide.");
+            return;
+        }
+
+        const payload = {
+            action: 'update_hote',
+            id: parseInt(id),
+            ip: ip,
+            masque: masque,
+            passerelle: passerelle
+        };
+
+        try {
+            // Transmission de la transaction au contrôleur frontal
+            const reponse = await fetch('api.php', {
+                method: 'POST', // Ajuster en PUT si votre contrôleur frontal gère ce verbe HTTP strict
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const resultat = await reponse.json();
+
+            if (reponse.ok && (resultat.succes || resultat.id)) {
+                // Fermeture de la modale
+                const modale = document.getElementById('editeur-hote');
+                if (modale) modale.style.display = 'none';
+                
+                // Indication dans la console pour l'intégration Vis.js (WBS 5.5.x)
+                console.info(`Attributs L3 mis à jour pour l'entité ID: ${id}`);
+            } else {
+                alert("Erreur de mutation : " + (resultat.erreur || "Rejet de l'API"));
+            }
+        } catch (erreur) {
+            console.error("Échec de la transaction PUT/POST sur l'API :", erreur);
+            alert("Impossible de sauvegarder la configuration.");
+        }
     }
 };
 
@@ -76,7 +167,7 @@ const AppClient = {
  */
 document.addEventListener('DOMContentLoaded', () => {
     
-    // 1. Gestion du bouton "Nouveau scénario" (ID spécifique pour éviter les conflits)
+    // 1. Gestion du bouton "Nouveau scénario"
     const btnNouveau = document.getElementById('btn-creer-scenario');
     if (btnNouveau) {
         btnNouveau.addEventListener('click', (e) => {
@@ -91,14 +182,75 @@ document.addEventListener('DOMContentLoaded', () => {
         carteNouveau.addEventListener('click', AppClient.creerScenario);
     }
 
-    // 3. Gestion des boutons "Supprimer" (Utilisation de data-id pour l'isolation)
+    // 3. Gestion des boutons "Supprimer"
     const boutonsSupprimer = document.querySelectorAll('.btn-danger');
     boutonsSupprimer.forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.preventDefault();
-            // On récupère l'ID stocké dans l'attribut data-id du bouton
             const id = e.target.getAttribute('data-id');
             AppClient.supprimerScenario(id);
         });
     });
+
+    // WBS 5.4.1 - Écouteur pour fermer la modale d'édition L3 manuellement
+    const btnFermerModaleHote = document.getElementById('btn-annuler-hote');
+    if (btnFermerModaleHote) {
+        btnFermerModaleHote.addEventListener('click', (e) => {
+            e.preventDefault();
+            const modale = document.getElementById('editeur-hote');
+            if (modale) modale.style.display = 'none';
+        });
+    }
+
+    /**
+     * WBS 5.4.2 - Récupère et affiche la table de routage d'un routeur
+     * @param {number} routeurId 
+     */
+    async function chargerTableRoutage(routeurId) {
+        const reponse = await fetch(`api.php?action=get_routes&routeur_id=${routeurId}`);
+        const routes = await reponse.json();
+        
+        const container = document.getElementById('table-body-routes');
+        container.innerHTML = ''; // Reset synchrone du DOM
+
+        routes.forEach(route => {
+            container.innerHTML += `
+                <tr>
+                    <td>${route.destination}</td>
+                    <td>${route.masque}</td>
+                    <td>${route.passerelle}</td>
+                    <td>${route.interface}</td>
+                    <td>
+                        <button class="btn-suppr-route" onclick="AppClient.supprimerRoute(${route.id}, ${routeurId})">
+                            X
+                        </button>
+                    </td>
+                </tr>`;
+        });
+    }
+
+    /**
+     * WBS 5.4.2 - Transmission d'une nouvelle route statique (POST)
+     */
+    async function ajouterRouteStatique(routeurId) {
+        const payload = {
+            action: 'add_route',
+            routeur_id: routeurId,
+            dest: document.getElementById('route-dest').value,
+            mask: document.getElementById('route-mask').value,
+            gw: document.getElementById('route-gw').value,
+            iface: document.getElementById('route-iface').value
+        };
+
+        // Validation IPv4 obligatoire (réutiliser la Regex du WBS 5.4.1)
+        if (!AppClient.validerIP(payload.dest)) return;
+
+        await fetch('api.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        chargerTableRoutage(routeurId); // Rafraîchissement de l'UI
+    }
 });

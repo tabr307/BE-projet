@@ -22,9 +22,6 @@
 
 .auth-form.hidden { display: none; }
 
-.form-group input {
-    background-color: #f4f4f2; /* Gris léger comme sur la capture */
-    border: 1px solid #d1d1cf;
-}
+
 
 .full-width { width: 100%; margin-top: 1rem; }

@@ -17,20 +17,33 @@
     <?php if ($page === 'editeur'): ?>
         <link rel="stylesheet" href="css/editeur.css">
     <?php endif; ?>
+
+    <!-- WBS 3.0: Prévention du FOUC (Flash of Unstyled Content) -->
+    <script>
+        (function() {
+            var theme = localStorage.getItem('theme');
+            if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        })();
+    </script>
 </head>
 <body>
 
 <header class="barre-nav">
     <div class="logo">Simulateur IP</div>
     
-    <?php if (isset($_SESSION['utilisateur_id'])): ?>
-        <div class="user-actions">
-            <span class="username">
+    <div class="user-actions" style="display: flex; align-items: center;">
+        <button id="btn-theme-toggle" class="btn-outline" style="padding: 4px 8px; margin-right: 10px; font-size: 16px; border-radius: 4px; background: transparent; border: 1px solid var(--bordure); cursor: pointer; color: var(--texte-principal);" title="Basculer le thème">
+            <span class="theme-icon">🌙</span>
+        </button>
+        <?php if (isset($_SESSION['utilisateur_id'])): ?>
+            <span class="username" style="margin-right: 15px;">
                 <?php echo htmlspecialchars($_SESSION['utilisateur_nom']); ?>
             </span>
             <a href="api.php?action=logout" class="btn-logout">Déconnexion</a>
-        </div>
-    <?php endif; ?>
+        <?php endif; ?>
+    </div>
 </header>
 
 <main id="app">

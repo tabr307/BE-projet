@@ -4,9 +4,9 @@
  */
 
 :root {
-    --bg-gris-clair: #f9fafb;
-    --bordure-douce: #e5e7eb;
-    --texte-titre: #111827;
+    --bg-gris-clair: var(--bg-clair);
+    --bordure-douce: var(--bordure);
+    --texte-titre: var(--texte-principal);
 }
 
 /* ==========================================================================
@@ -17,7 +17,7 @@
 .editeur-layout {
     display: flex;
     height: calc(100vh - 125px); /* Ajustement pour éviter le débordement bas */
-    background-color: white;
+    background-color: var(--blanc);
     border-top: 1px solid var(--bordure-douce);
 }
 
@@ -26,7 +26,7 @@
     justify-content: space-between;
     align-items: center;
     padding: 0.75rem 1.5rem;
-    background: #fff;
+    background: var(--blanc);
     border-bottom: 1px solid var(--bordure-douce);
     height: 60px;
 }
@@ -57,8 +57,9 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.4rem 1rem;
-    border: 1px solid #000;
-    background: #fff;
+    border: 1px solid var(--texte-principal);
+    background: var(--blanc);
+    color: var(--texte-principal);
     border-radius: 4px;
     font-weight: 600;
     cursor: pointer;
@@ -66,8 +67,8 @@
 }
 
 .btn-simuler:hover {
-    background: #000;
-    color: #fff;
+    background: var(--texte-principal);
+    color: var(--blanc);
 }
 
 /* ==========================================================================
@@ -100,8 +101,8 @@
 }
 
 .tabs-equipements .tab-btn.active {
-    color: black;
-    border-bottom-color: black;
+    color: var(--texte-principal);
+    border-bottom-color: var(--texte-principal);
 }
 
 /* Zone d'ajout (Bouton pointillé) */
@@ -134,7 +135,7 @@
     flex: 1;
     overflow-y: auto;
     padding: 1rem;
-    background-color: white;
+    background-color: var(--blanc);
 }
 
 .carte-objet {
@@ -167,7 +168,8 @@
     padding: 0.2rem 0.5rem;
     border: 1px solid var(--bordure-douce);
     border-radius: 4px;
-    background: white;
+    background: var(--blanc);
+    color: var(--texte-principal);
     font-size: 0.7rem;
     cursor: pointer;
 }
@@ -182,7 +184,7 @@
 
 .zone-dessin {
     flex: 1;
-    background-color: #fafafa;
+    background-color: var(--bg-clair);
     position: relative;
     /* Optionnel : fond texturé très discret */
     /* background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
@@ -199,7 +201,7 @@
     position: absolute;
     bottom: 1.5rem;
     right: 1.5rem;
-    background: white;
+    background: var(--blanc);
     padding: 0.5rem 1rem;
     border: 1px solid var(--bordure-douce);
     border-radius: 8px;
@@ -214,7 +216,7 @@
 .legende-canvas .item {
     display: flex;
     align-items: center;
-    color: #374151;
+    color: var(--texte-principal);
 }
 
 /* Symboles géométriques de la légende */
@@ -222,8 +224,8 @@
     display: inline-block;
     width: 16px;
     height: 12px;
-    border: 1px solid #9ca3af;
-    background-color: #ffffff;
+    border: 1px solid var(--bordure-douce);
+    background-color: var(--blanc);
     margin-right: 6px;
 }
 
@@ -247,12 +249,12 @@
 .modal-overlay.hidden { display: none; }
 
 .modal-content {
-    background: #ffffff; /* Fond blanc pur */
+    background: var(--blanc); /* Fond dynamique */
     width: 400px;
     border-radius: 8px;
-    border: 1px solid #e5e7eb; /* Bordure gris très clair */
-    box-shadow: 0 10px 25px rgba(0,0,0,0.1); /* Ombre douce pour faire ressortir la fenêtre */
-    color: #1f2937; /* Texte gris foncé pour une bonne lisibilité */
+    border: 1px solid var(--bordure-douce);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1); 
+    color: var(--texte-principal); 
     font-family: system-ui, sans-serif;
 }
 
@@ -263,18 +265,18 @@
     padding: 16px 20px;
     border-bottom: 1px solid #e5e7eb;
 }
-.modal-header h3 { margin: 0; font-size: 16px; font-weight: 600; color: #111827; }
-.btn-close { background: none; border: none; color: #9ca3af; font-size: 20px; cursor: pointer; transition: color 0.2s; }
-.btn-close:hover { color: #1f2937; }
+.modal-header h3 { margin: 0; font-size: 16px; font-weight: 600; color: var(--texte-titre); }
+.btn-close { background: none; border: none; color: var(--texte-muet); font-size: 20px; cursor: pointer; transition: color 0.2s; }
+.btn-close:hover { color: var(--texte-principal); }
 
 .modal-body { padding: 20px; }
 
 /* Même si la classe s'appelle 'dark-input' dans ton HTML, on la style en clair ici ! */
 .dark-input {
     width: 100%;
-    background: #ffffff;
-    border: 1px solid #d1d5db; /* Bordure grise standard */
-    color: #1f2937;
+    background: var(--input-bg);
+    border: 1px solid var(--input-bordure);
+    color: var(--texte-principal);
     padding: 10px 12px;
     border-radius: 6px;
     font-size: 14px;
@@ -291,7 +293,7 @@
 .mb-2 { margin-bottom: 8px; }
 .mb-3 { margin-bottom: 12px; }
 .block { display: block; }
-.texte-muet { color: #6b7280; } /* Gris intermédiaire */
+.texte-muet { color: var(--texte-muet); } /* Gris intermédiaire */
 .text-sm { font-size: 13px; }
 
 .modal-divider { border: 0; border-top: 1px solid #e5e7eb; margin: 20px 0; }
@@ -310,22 +312,22 @@
 .form-sous-section {
     margin-top: 12px;
     padding: 12px;
-    background: #f9fafb; /* Fond gris très clair pour détacher le formulaire */
+    background: var(--bg-gris-clair); 
     border-radius: 6px;
-    border: 1px dashed #d1d5db; /* Bordure en pointillés */
+    border: 1px dashed var(--bordure-douce); 
 }
 
 .btn-outline {
-    background: #ffffff;
-    border: 1px solid #d1d5db;
-    color: #374151;
+    background: var(--blanc);
+    border: 1px solid var(--bordure-douce);
+    color: var(--texte-principal);
     padding: 8px;
     border-radius: 6px;
     cursor: pointer;
     transition: background 0.2s, border-color 0.2s;
     font-weight: 500;
 }
-.btn-outline:hover { background: #f3f4f6; border-color: #9ca3af; }
+.btn-outline:hover { background: var(--bg-gris-clair); border-color: var(--texte-muet); }
 .full-width { width: 100%; }
 
 .modal-footer {
@@ -334,13 +336,13 @@
     align-items: center;
     padding: 16px 20px;
     gap: 12px;
-    background: #f9fafb; /* Léger fond pour le bas de la fenêtre */
-    border-top: 1px solid #e5e7eb;
+    background: var(--bg-gris-clair);
+    border-top: 1px solid var(--bordure-douce);
     border-bottom-left-radius: 8px;
     border-bottom-right-radius: 8px;
 }
-.btn-text { background: none; border: none; color: #4b5563; cursor: pointer; padding: 8px 12px; font-weight: 500; }
-.btn-text:hover { color: #111827; }
+.btn-text { background: none; border: none; color: var(--texte-muet); cursor: pointer; padding: 8px 12px; font-weight: 500; }
+.btn-text:hover { color: var(--texte-principal); }
 .btn-primary {
     background: #3b82f6;
     color: #ffffff;

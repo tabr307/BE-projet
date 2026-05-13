@@ -6,6 +6,7 @@
 
 <!-- Scripts globaux -->
 <script src="js/application-client.js"></script>
+<script src="js/theme-manager.js"></script>
 
 <?php if ($page === 'editeur'): ?>
     <!-- Chargement de la librairie vis.js pour le WBS 3.0 -->

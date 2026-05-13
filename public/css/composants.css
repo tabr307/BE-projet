@@ -113,6 +113,7 @@
     border: 1px solid var(--input-bordure);
     border-radius: 6px;
     background-color: var(--input-bg);
+    color: var(--texte-principal);
     font-size: 1rem;
     transition: var(--transition);
     box-sizing: border-box;
@@ -120,8 +121,9 @@
 
 .form-group input:focus {
     outline: none;
-    border-color: var(--noir);
+    border-color: var(--primaire);
     background-color: var(--blanc);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
 }
 
 /* 5. GRILLE ET CARTES DE SCÉNARIOS */

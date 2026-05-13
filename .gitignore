@@ -15,3 +15,13 @@ vendor/
 # --- Logs et Temporaire ---
 *.log
 tmp/
+
+extract_pdf.py
+
+SKILL.md
+WBS.md
+SPECIFICATIONS_PROJET.md
+Conception/
+Conception/architecture_technique.md
+Conception/diagrammes.md
+Conception/WBS.md

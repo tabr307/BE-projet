@@ -110,11 +110,39 @@ function editerElt(type, id, ancienNom) {
     document.getElementById('modal-input-nom').value = ancienNom;
     
     const sectionInterfaces = document.getElementById('section-interfaces');
+    const sectionRoutes = document.getElementById('section-routes');
+    const sectionHote = document.getElementById('section-hote');
+    
+    sectionInterfaces.style.display = 'none';
+    sectionRoutes.style.display = 'none';
+    sectionHote.style.display = 'none';
+
     if (type === 'routeurs') {
         sectionInterfaces.style.display = 'block';
+        sectionRoutes.style.display = 'block';
         chargerInterfacesRouteur(id);
-    } else {
-        sectionInterfaces.style.display = 'none';
+        chargerRoutesRouteur(id);
+    } else if (type === 'hotes') {
+        sectionHote.style.display = 'block';
+        
+        const estConnecte = donneesScenario.liaisons_hs.some(l => parseInt(l.hote_id) === id);
+        const alerte = document.getElementById('hote-verrouillage-alerte');
+        const formConfig = document.getElementById('form-config-hote');
+        
+        if (estConnecte) {
+            alerte.style.display = 'none';
+            formConfig.style.display = 'block';
+            
+            // Pré-remplir les données actuelles si disponibles
+            const hote = donneesScenario.hotes.find(h => parseInt(h.id) === id);
+            document.getElementById('hote-ip').value = hote && hote.adresse_ip ? hote.adresse_ip.split('/')[0] : '';
+            // TODO: extraire le masque réel si besoin, ici on gère le CIDR
+            document.getElementById('hote-cidr').value = '24'; 
+            document.getElementById('hote-passerelle').value = hote && hote.passerelle_ip ? hote.passerelle_ip : '';
+        } else {
+            alerte.style.display = 'block';
+            formConfig.style.display = 'none';
+        }
     }
 
     document.getElementById('form-ajout-interface').classList.add('hidden');
@@ -218,7 +246,14 @@ function dessinerReseau() {
     nodes.clear(); edges.clear();
     const allNodes = [];
     
-    const styleBase = { 
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    
+    const styleBase = isDark ? {
+        color: { background: '#1f2937', border: '#4b5563', highlight: { background: '#374151', border: '#6b7280' } },
+        font: { color: '#f9fafb', face: 'system-ui', size: 14 },
+        borderWidth: 1,
+        shadow: { enabled: true, color: 'rgba(0,0,0,0.5)', size: 4, x: 2, y: 2 }
+    } : { 
         color: { background: '#ffffff', border: '#d1d5db', highlight: { background: '#f9fafb', border: '#9ca3af' } },
         font: { color: '#1f2937', face: 'system-ui', size: 14 },
         borderWidth: 1,
@@ -227,19 +262,40 @@ function dessinerReseau() {
 
     const conf = { 
         routeurs: { shape: 'box', ...styleBase, shapeProperties: { borderRadius: 0 } },
-        switchs:  { shape: 'box', ...styleBase, color: { background: '#f0f9ff', border: '#bae6fd' }, shapeProperties: { borderRadius: 4 } },
+        switchs:  { 
+            shape: 'box', 
+            ...styleBase, 
+            color: isDark ? { background: '#1e3a8a', border: '#3b82f6', highlight: { background: '#2563eb', border: '#60a5fa' } } : { background: '#f0f9ff', border: '#bae6fd' }, 
+            shapeProperties: { borderRadius: 4 } 
+        },
         reseaux:  { shape: 'ellipse', ...styleBase }, 
         hotes:    { shape: 'box', ...styleBase, shapeProperties: { borderRadius: 8 } }
     };
 
     ['routeurs', 'switchs', 'reseaux', 'hotes'].forEach(type => {
         (donneesScenario[type] || []).forEach(item => {
+            let itemStyle = { ...conf[type] };
+            
+            // Verrouillage visuel de l'hôte
+            if (type === 'hotes') {
+                const estConnecte = donneesScenario.liaisons_hs.some(l => parseInt(l.hote_id) === parseInt(item.id));
+                if (!estConnecte) {
+                    if (isDark) {
+                        itemStyle.color = { background: '#111827', border: '#374151' };
+                        itemStyle.font = { color: '#4b5563' };
+                    } else {
+                        itemStyle.color = { background: '#f3f4f6', border: '#d1d5db' };
+                        itemStyle.font = { color: '#9ca3af' };
+                    }
+                }
+            }
+
             allNodes.push({
                 id: `${type}_${item.id}`, 
                 label: item.nom,
                 x: item.pos_x ? parseInt(item.pos_x) : undefined,
                 y: item.pos_y ? parseInt(item.pos_y) : undefined,
-                ...conf[type]
+                ...itemStyle
             });
         });
     });
@@ -411,6 +467,124 @@ async function supprimerInterfaceRouteur(id_interface, id_routeur) {
     }
 }
 
+// --- LOGIQUE DES ROUTES STATIQUES ---
+
+function toggleRouteForm() {
+    const form = document.getElementById('form-ajout-route');
+    const icon = document.getElementById('icon-toggle-route');
+    
+    if (form.classList.contains('hidden')) {
+        form.classList.remove('hidden');
+        icon.textContent = '▼';
+    } else {
+        form.classList.add('hidden');
+        icon.textContent = '▶';
+    }
+}
+
+async function chargerRoutesRouteur(id_routeur) {
+    const container = document.getElementById('liste-routes');
+    const msgVide = document.getElementById('liste-routes-vides');
+    container.innerHTML = '<p class="texte-muet text-sm">Chargement en cours...</p>';
+    
+    const res = await apiFetch({ action: 'lire_routes', id_routeur: id_routeur });
+    
+    if (res.statut === 'succes') {
+        if (!res.routes || res.routes.length === 0) {
+            container.innerHTML = '';
+            msgVide.style.display = 'block';
+        } else {
+            msgVide.style.display = 'none';
+            container.innerHTML = res.routes.map(route => `
+                <div style="display:flex; justify-content:space-between; align-items:center; background:#f9fafb; border:1px solid #e5e7eb; padding:8px 12px; border-radius:6px; margin-bottom:8px;">
+                    <div>
+                        <strong style="font-size:13px; color:#1f2937;">${route.reseau_dest} / ${route.masque_dest}</strong><br>
+                        <span style="font-size:12px; color:#6b7280;">Via : ${route.next_hop}</span>
+                    </div>
+                    <button style="background:none; border:none; color:#ef4444; font-weight:bold; cursor:pointer;" onclick="supprimerRouteStatique(${route.id}, ${id_routeur})">✕</button>
+                </div>
+            `).join('');
+        }
+    } else {
+        container.innerHTML = '<p class="texte-muet text-sm" style="color:red;">Erreur de lecture API.</p>';
+    }
+}
+
+async function ajouterRouteStatique() {
+    if (!elementEnEdition || elementEnEdition.type !== 'routeurs') return;
+    
+    const reseauDest = document.getElementById('nouvelle-route-dest').value.trim();
+    const masqueDest = document.getElementById('nouvelle-route-masque').value.trim();
+    const nextHop = document.getElementById('nouvelle-route-nexthop').value.trim();
+    
+    if(!reseauDest || !masqueDest || !nextHop) {
+        await afficherAlerte("Validation échouée : Tous les champs de la route sont obligatoires.");
+        return;
+    }
+
+    const res = await apiFetch({
+        action: 'ajouter_route',
+        id_routeur: elementEnEdition.id,
+        reseau_dest: reseauDest,
+        masque_dest: parseInt(masqueDest, 10),
+        next_hop: nextHop
+    });
+
+    if (res.statut === 'succes') {
+        document.getElementById('nouvelle-route-dest').value = '';
+        document.getElementById('nouvelle-route-masque').value = '';
+        document.getElementById('nouvelle-route-nexthop').value = '';
+        
+        toggleRouteForm();
+        chargerRoutesRouteur(elementEnEdition.id);
+    } else {
+        await afficherAlerte("Exception d'insertion : " + (res.message || "Rejet de la transaction."));
+        document.getElementById('nouvelle-route-nexthop').value = '';
+    }
+}
+
+async function supprimerRouteStatique(id_route, id_routeur) {
+    if(await demanderConfirmation("Confirmer la destruction de la route statique ?")) {
+        const res = await apiFetch({ action: 'supprimer_route', id_route: id_route });
+        if (res.statut === 'succes') {
+            chargerRoutesRouteur(id_routeur);
+        } else {
+            await afficherAlerte("Exception de suppression : " + (res.message || "Rejet de la transaction."));
+        }
+    }
+}
+
+// --- LOGIQUE CONFIGURATION HOTE ---
+
+async function sauvegarderHote() {
+    if (!elementEnEdition || elementEnEdition.type !== 'hotes') return;
+    
+    const ip = document.getElementById('hote-ip').value.trim();
+    const cidr = document.getElementById('hote-cidr').value.trim();
+    const passerelle = document.getElementById('hote-passerelle').value.trim();
+    
+    if(!ip || !cidr || !passerelle) {
+        await afficherAlerte("Validation échouée : IP, CIDR et Passerelle sont requis.");
+        return;
+    }
+
+    const res = await apiFetch({
+        action: 'configurer_hote',
+        id_hote: elementEnEdition.id,
+        ip: ip,
+        cidr: parseInt(cidr, 10),
+        passerelle: passerelle
+    });
+
+    if (res.statut === 'succes') {
+        fermerModal();
+        initialiserEditeur();
+        await afficherAlerte("Configuration réseau appliquée avec succès.");
+    } else {
+        await afficherAlerte("Erreur de configuration : " + (res.message || "Rejet de la transaction."));
+    }
+}
+
 // --- UTILITAIRES ASYNCHRONES DOM (MODALES) ---
 
 function demanderSelectionInterface(interfaces) {
@@ -514,3 +688,10 @@ function demanderSaisie(message, valeurDefaut = '') {
         }, { once: true });
     });
 }
+
+// --- WBS 3.0 : Écouteur pour la bascule de thème ---
+window.addEventListener('themeChanged', () => {
+    if (network) {
+        dessinerReseau();
+    }
+});

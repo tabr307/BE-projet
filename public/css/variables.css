@@ -31,3 +31,28 @@
     --ombre-lg: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+[data-theme="dark"] {
+    --blanc: #1f2937;
+    --noir: #f9fafb;
+    --bg-clair: #111827;
+    --bg-gris: #374151;
+    
+    --primaire: #60a5fa; /* Bleu clair pour contraster */
+    
+    --input-bg: #374151;
+    --input-bordure: #4b5563;
+    
+    --texte-principal: #f9fafb;
+    --texte-muet: #9ca3af;
+    
+    --bordure: #374151;
+    
+    --ombre: 0 1px 3px rgba(0, 0, 0, 0.5);
+    --ombre-lg: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+}
+
+/* Transition douce universelle sur les fonds et couleurs */
+*, *::before, *::after {
+    transition: background-color var(--transition), color var(--transition), border-color var(--transition);
+}

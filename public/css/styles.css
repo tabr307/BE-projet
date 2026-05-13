@@ -1,0 +1,63 @@
+/* public/css/styles.css */
+
+/* Correction globale des liens pour éviter le violet natif des navigateurs */
+a {
+    color: var(--primaire, #3b82f6);
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+a:hover {
+    color: var(--texte-principal);
+}
+
+.lien-retour-discret {
+    color: var(--texte-muet);
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.lien-retour-discret:hover {
+    color: var(--texte-principal);
+}
+
+.btn-logout {
+    color: var(--danger);
+    font-weight: bold;
+    font-size: 0.9rem;
+    padding: 0.4rem 0.8rem;
+    border: 1px solid var(--danger);
+    border-radius: 4px;
+    background: transparent;
+}
+
+.btn-logout:hover {
+    color: var(--blanc);
+    background: var(--danger);
+}
+
+/* Surcharge stricte de la barre d'outils vis.js (Ajouter un lien, etc.) pour le Dark Mode */
+div.vis-network div.vis-manipulation, 
+div.vis-network div.vis-edit-mode {
+    background: var(--bg-clair) !important;
+    border-bottom: 1px solid var(--bordure-douce) !important;
+    color: var(--texte-principal) !important;
+}
+
+.vis-network .vis-manipulation .vis-button {
+    color: var(--texte-principal) !important;
+}
+
+div.vis-network div.vis-manipulation .vis-button:hover,
+div.vis-network div.vis-edit-mode .vis-button:hover {
+    background-color: var(--bg-gris-clair) !important;
+    box-shadow: none !important;
+}
+
+.vis-network .vis-manipulation .vis-separator-line {
+    background-color: var(--bordure-douce) !important;
+}
+
+.vis-network .vis-manipulation .vis-label {
+    color: var(--texte-principal) !important;
+}

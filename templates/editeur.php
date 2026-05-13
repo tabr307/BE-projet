@@ -36,7 +36,6 @@ if (!$idScenario) {
             <button class="tab-btn" onclick="switchEquipementTab('switchs')">Switchs</button>
             <button class="tab-btn" onclick="switchEquipementTab('reseaux')">Réseaux</button>
             <button class="tab-btn" onclick="switchEquipementTab('hotes')">Hôtes</button>
-            <button class="tab-btn" onclick="switchEquipementTab('routes')">Routes</button>
         </nav>
 
         <!-- Zone d'action : Ajouter un élément -->
@@ -107,6 +106,44 @@ if (!$idScenario) {
                         <input type="number" id="nouvelle-int-masque" placeholder="CIDR (ex: 24)" class="dark-input" style="flex:1;" min="0" max="32">
                     </div>
                     <button class="btn-outline full-width" onclick="ajouterInterfaceRouteur()">Sauvegarder l'interface</button>
+                </div>
+            </div>
+
+            <!-- Section Routes Statiques (Visible uniquement pour les routeurs) -->
+            <div id="section-routes" style="display:none; margin-top:20px;">
+                <h4 class="texte-muet text-sm mb-2">Routes statiques</h4>
+                
+                <div id="liste-routes" class="mb-3"></div>
+                <p id="liste-routes-vides" class="texte-muet text-sm mb-3" style="display:none; font-style:italic;">Aucune route configurée.</p>
+                
+                <button id="btn-toggle-route" class="btn-text-blue" onclick="toggleRouteForm()">
+                    <span id="icon-toggle-route">▶</span> + Ajouter une route
+                </button>
+                
+                <div id="form-ajout-route" class="hidden form-sous-section" style="margin-top:10px;">
+                    <div style="display:flex; gap:8px; margin-bottom:8px;">
+                        <input type="text" id="nouvelle-route-dest" placeholder="Réseau dest (ex: 10.0.0.0)" class="dark-input" style="flex:2;">
+                        <input type="number" id="nouvelle-route-masque" placeholder="CIDR (ex: 8)" class="dark-input" style="flex:1;" min="0" max="32">
+                    </div>
+                    <input type="text" id="nouvelle-route-nexthop" placeholder="Next Hop (ex: 192.168.1.1)" class="dark-input mb-2" style="width:100%;">
+                    <button class="btn-outline full-width" onclick="ajouterRouteStatique()">Sauvegarder la route</button>
+                </div>
+            </div>
+
+            <!-- Section Hôte (Visible uniquement pour les hôtes) -->
+            <div id="section-hote" style="display:none; margin-top:20px;">
+                <div id="hote-verrouillage-alerte" style="background:#fef2f2; border:1px solid #fca5a5; color:#ef4444; padding:10px; border-radius:6px; margin-bottom:10px; font-size:13px; font-weight:bold;">
+                    ⚠️ Verrouillage Actif : Cet hôte n'est pas physiquement rattaché à un équipement réseau (Switch). La configuration est désactivée.
+                </div>
+                
+                <div id="form-config-hote">
+                    <h4 class="texte-muet text-sm mb-2">Configuration IP de l'Hôte</h4>
+                    <div style="display:flex; gap:8px; margin-bottom:8px;">
+                        <input type="text" id="hote-ip" placeholder="Adresse IP (ex: 192.168.1.10)" class="dark-input" style="flex:2;">
+                        <input type="number" id="hote-cidr" placeholder="CIDR (ex: 24)" class="dark-input" style="flex:1;" min="0" max="32">
+                    </div>
+                    <input type="text" id="hote-passerelle" placeholder="Passerelle par défaut (ex: 192.168.1.254)" class="dark-input mb-2" style="width:100%;">
+                    <button class="btn-outline full-width" onclick="sauvegarderHote()">Appliquer Configuration IP</button>
                 </div>
             </div>
         </div>
