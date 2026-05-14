@@ -62,4 +62,22 @@ class RouteStatique {
         $stmt = $this->pdo->prepare("DELETE FROM route_statique WHERE id = :id");
         return $stmt->execute([':id' => $id]);
     }
+
+    public function modifier(int $id, string $reseau_dest, int $masque_dest, string $next_hop): bool {
+        if (!CalculateurReseau::validerIP($reseau_dest) || !CalculateurReseau::validerIP($next_hop)) {
+            return false;
+        }
+
+        $stmt = $this->pdo->prepare("
+            UPDATE route_statique 
+            SET reseau_dest = :reseau_dest, masque_dest = :masque_dest, next_hop = :next_hop 
+            WHERE id = :id
+        ");
+        return $stmt->execute([
+            ':id'          => $id,
+            ':reseau_dest' => $reseau_dest,
+            ':masque_dest' => $masque_dest,
+            ':next_hop'    => $next_hop
+        ]);
+    }
 }

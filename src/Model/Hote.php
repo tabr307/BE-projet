@@ -7,7 +7,7 @@ class Hote {
     }
 
     public function listerParScenario(int $sid): array {
-        $stmt = $this->pdo->prepare("SELECT id, nom, adresse_ip, passerelle_ip, pos_x, pos_y, sous_reseau_id FROM hote WHERE scenario_id = ?");
+        $stmt = $this->pdo->prepare("SELECT id, nom, nom_interface, adresse_ip, passerelle_ip, pos_x, pos_y, sous_reseau_id FROM hote WHERE scenario_id = ?");
         $stmt->execute([$sid]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -27,9 +27,9 @@ class Hote {
         return $this->pdo->prepare("UPDATE hote SET pos_x = ?, pos_y = ? WHERE id = ?")->execute([$x, $y, $id]);
     }
 
-    public function configurerReseau(int $id, string $ip, string $passerelle, ?int $sous_reseau_id): bool {
-        $sql = "UPDATE hote SET adresse_ip = ?, passerelle_ip = ?, sous_reseau_id = ? WHERE id = ?";
-        return $this->pdo->prepare($sql)->execute([$ip, $passerelle, $sous_reseau_id, $id]);
+    public function configurerReseau(int $id, string $ip, string $passerelle, string $nom_interface, ?int $sous_reseau_id): bool {
+        $sql = "UPDATE hote SET adresse_ip = ?, passerelle_ip = ?, nom_interface = ?, sous_reseau_id = ? WHERE id = ?";
+        return $this->pdo->prepare($sql)->execute([$ip, $passerelle, $nom_interface, $sous_reseau_id, $id]);
     }
 
     public function supprimer(int $id): bool {

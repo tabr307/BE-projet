@@ -46,4 +46,22 @@ class InterfaceRouteur {
         ]);
         return (int) $stmt->fetchColumn();
     }
+
+    public function modifier(int $id, string $nom, string $adresse_ip, int $masque): bool {
+        if (!CalculateurReseau::validerIP($adresse_ip)) {
+            return false;
+        }
+
+        $stmt = $this->pdo->prepare("
+            UPDATE interface_routeur 
+            SET nom = :nom, adresse_ip = :adresse_ip, masque = :masque 
+            WHERE id = :id
+        ");
+        return $stmt->execute([
+            ':id'         => $id,
+            ':nom'        => trim($nom),
+            ':adresse_ip' => $adresse_ip,
+            ':masque'     => $masque
+        ]);
+    }
 }

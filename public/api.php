@@ -17,6 +17,7 @@ require_once __DIR__ . '/../src/Model/Utilisateur.php';
 require_once __DIR__ . '/../src/Model/CalculateurReseau.php';
 require_once __DIR__ . '/../src/Model/Scenario.php';
 
+
 try {
     GestionnaireAuth::initialiserSession();
     $utilisateurId = $_SESSION['utilisateur_id'] ?? 0;
@@ -76,7 +77,7 @@ try {
             if ($modele->trouverParNom($user)) {
                 header('Location: index.php?page=connexion&erreur=existe');
             } else {
-                if ($modele->creer($user, $parametres['password'] ?? '')) {
+                if ($modele->inscrire($user, $parametres['password'] ?? '')) {
                     header('Location: index.php?page=connexion&message=success');
                 } else {
                     header('Location: index.php?page=connexion&erreur=reg');
@@ -98,7 +99,10 @@ try {
                 'reseaux'     => (new SousReseau($pdo))->listerParScenario($sid),
                 'hotes'       => (new Hote($pdo))->listerParScenario($sid),
                 'liaisons_hs' => (new Liaison($pdo))->listerLiaisonsHoteSwitch($sid),
-                'liaisons_is' => (new Liaison($pdo))->listerLiaisonsInterfaceSwitch($sid)
+                'liaisons_is' => (new Liaison($pdo))->listerLiaisonsInterfaceSwitch($sid),
+                'liaisons_hi' => (new Liaison($pdo))->listerLiaisonsHoteInterface($sid),
+                'liaisons_hh' => (new Liaison($pdo))->listerLiaisonsHoteHote($sid),
+                'liaisons_ii' => (new Liaison($pdo))->listerLiaisonsInterfaceInterface($sid)
             ];
             break;
             
@@ -126,6 +130,7 @@ try {
         // --- CONFIGURATION L2/L3 ---
         case 'configurer_hote':
             $idHote = (int)$parametres['id_hote'];
+            $nomInterface = trim($parametres['nom_interface'] ?? 'eth0');
             $ip = trim($parametres['ip']);
             $passerelle = trim($parametres['passerelle']);
             $cidr = (int)($parametres['cidr'] ?? 24);
@@ -139,7 +144,7 @@ try {
                 throw new Exception("Violation de topologie logique : La passerelle n'appartient pas au segment d'émission.");
             }
 
-            (new Hote($pdo))->configurerReseau($idHote, $ip, $passerelle, $sousReseauId);
+            (new Hote($pdo))->configurerReseau($idHote, $ip, $passerelle, $nomInterface, $sousReseauId);
             $reponse = ['statut' => 'succes'];
             break;
 
@@ -172,6 +177,17 @@ try {
             $reponse = ['statut' => 'succes'];
             break;
 
+        case 'modifier_interface_routeur':
+            $id = (int)$parametres['id_interface'];
+            $ip = trim($parametres['ip']);
+            $masque = (int)$parametres['masque'];
+            $nom = trim($parametres['nom']);
+            if (!(new InterfaceRouteur($pdo))->modifier($id, $nom, $ip, $masque)) {
+                throw new Exception("Vecteur IP invalide pour la modification de l'interface.");
+            }
+            $reponse = ['statut' => 'succes'];
+            break;
+
         case 'supprimer_interface':
             $stmt = $pdo->prepare("DELETE FROM interface_routeur WHERE id = ?");
             $stmt->execute([(int)$parametres['id_interface']]);
@@ -184,8 +200,26 @@ try {
             $reponse = ['statut' => 'succes'];
             break;
 
+        case 'creer_liaison_hote_interface':
+            $res = (new Liaison($pdo))->creerLiaisonHoteInterface((int)$parametres['hote_id'], (int)$parametres['interface_id']);
+            if (!$res['success']) throw new Exception($res['erreur']);
+            $reponse = ['statut' => 'succes'];
+            break;
+
+        case 'creer_liaison_hote_hote':
+            $res = (new Liaison($pdo))->creerLiaisonHoteHote((int)$parametres['hote_1_id'], (int)$parametres['hote_2_id']);
+            if (!$res['success']) throw new Exception($res['erreur']);
+            $reponse = ['statut' => 'succes'];
+            break;
+
         case 'creer_liaison_interface_switch':
             $res = (new Liaison($pdo))->creerLiaisonInterfaceSwitch((int)$parametres['interface_id'], (int)$parametres['switch_id']);
+            if (!$res['success']) throw new Exception($res['erreur']);
+            $reponse = ['statut' => 'succes'];
+            break;
+
+        case 'creer_liaison_interface_interface':
+            $res = (new Liaison($pdo))->creerLiaisonInterfaceInterface((int)$parametres['interface_1_id'], (int)$parametres['interface_2_id']);
             if (!$res['success']) throw new Exception($res['erreur']);
             $reponse = ['statut' => 'succes'];
             break;
@@ -198,6 +232,15 @@ try {
                 $stmt->execute([(int)$parts[1], (int)$parts[2]]);
             } elseif ($type === 'lis') {
                 $stmt = $pdo->prepare("DELETE FROM liaison_interface_switch WHERE interface_id = ? AND switch_id = ?");
+                $stmt->execute([(int)$parts[1], (int)$parts[2]]);
+            } elseif ($type === 'lhi') {
+                $stmt = $pdo->prepare("DELETE FROM liaison_hote_interface WHERE hote_id = ? AND interface_id = ?");
+                $stmt->execute([(int)$parts[1], (int)$parts[2]]);
+            } elseif ($type === 'lhh') {
+                $stmt = $pdo->prepare("DELETE FROM liaison_hote_hote WHERE hote_1_id = ? AND hote_2_id = ?");
+                $stmt->execute([(int)$parts[1], (int)$parts[2]]);
+            } elseif ($type === 'lii') {
+                $stmt = $pdo->prepare("DELETE FROM liaison_interface_interface WHERE interface_id = ? AND interface_1_id = ?");
                 $stmt->execute([(int)$parts[1], (int)$parts[2]]);
             } else {
                 throw new Exception("Vecteur de liaison non résolu.");
@@ -224,9 +267,40 @@ try {
             $reponse = ['statut' => 'succes'];
             break;
 
+        case 'modifier_route':
+            $idRoute = (int)$parametres['id_route'];
+            $reseauDest = trim($parametres['reseau_dest']);
+            $masqueDest = (int)$parametres['masque_dest'];
+            $nextHop = trim($parametres['next_hop']);
+            
+            if (!(new RouteStatique($pdo))->modifier($idRoute, $reseauDest, $masqueDest, $nextHop)) {
+                throw new Exception("Vecteur IP invalide. Validation échouée lors de la modification de la route.");
+            }
+            
+            $reponse = ['statut' => 'succes'];
+            break;
+
         case 'supprimer_route':
             (new RouteStatique($pdo))->supprimer((int)$parametres['id_route']);
             $reponse = ['statut' => 'succes'];
+            break;
+
+        // --- MOTEUR DE SIMULATION WBS 4.0 ---
+        case 'simuler_routage':
+            require_once __DIR__ . '/../core/MoteurRoutage.php';
+            $scenarioId = (int)($parametres['scenario_id'] ?? 0);
+            $hoteSourceId = (int)($parametres['id_source'] ?? 0);
+            $ipDest = trim($parametres['ip_dest'] ?? '');
+            
+            if ($scenarioId === 0 || $hoteSourceId === 0 || empty($ipDest)) {
+                throw new Exception("Paramètres de simulation manquants (scenario_id, id_source, ip_dest).");
+            }
+            if (!CalculateurReseau::validerIP($ipDest)) {
+                throw new Exception("L'adresse IP de destination est invalide.");
+            }
+            
+            $resultat = MoteurRoutage::simulerAcheminement($pdo, $scenarioId, $hoteSourceId, $ipDest);
+            $reponse = $resultat; // Contient 'statut' => 'succes', 'trace' => [...]
             break;
 
         // --- MUTATION GÉNÉRIQUE ---
@@ -256,6 +330,27 @@ try {
             else { throw new Exception("Typage d'équipement non qualifié pour le renommage."); }
             
             $reponse = ['statut' => 'succes'];
+            break;
+
+        // --- ADMINISTRATION ---
+        case 'bannir_utilisateur':
+            if (empty($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
+                throw new Exception("Action refusée : Droits administrateur requis.");
+            }
+            $idCible = (int)($parametres['id_utilisateur'] ?? 0);
+            if ($idCible === 0 || $idCible === $utilisateurId) {
+                throw new Exception("Utilisateur invalide ou vous-même.");
+            }
+            (new Utilisateur($pdo))->supprimer($idCible);
+            $reponse = ['statut' => 'succes'];
+            break;
+
+        case 'purger_scenarios_vides':
+            if (empty($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
+                throw new Exception("Action refusée : Droits administrateur requis.");
+            }
+            $count = (new Scenario($pdo))->purgerScenariosVides();
+            $reponse = ['statut' => 'succes', 'supprimes' => $count];
             break;
 
         case 'mettre_a_jour_positions':

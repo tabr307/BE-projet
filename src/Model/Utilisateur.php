@@ -26,5 +26,15 @@ class Utilisateur {
             return false;
         }
     }
+
+    public function listerTous(): array {
+        $stmt = $this->pdo->query("SELECT id, identifiant, role FROM utilisateur ORDER BY id ASC");
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function supprimer(int $id): bool {
+        $stmt = $this->pdo->prepare("DELETE FROM utilisateur WHERE id = :id AND role != 'admin'");
+        return $stmt->execute([':id' => $id]);
+    }
 }
 ?>

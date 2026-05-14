@@ -12,8 +12,7 @@ Thumbs.db
 # --- Dépendances (si tu ajoutes Composer plus tard) ---
 vendor/
 
-# --- Logs et Temporaire ---
-*.log
+# --- Temporaire ---
 tmp/
 
 extract_pdf.py

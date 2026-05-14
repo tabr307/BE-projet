@@ -354,3 +354,23 @@
     transition: background 0.2s;
 }
 .btn-primary:hover { background: #2563eb; }
+
+/* ==========================================================================
+   4. ANIMATION WBS 5.0
+   ========================================================================== */
+.datagram-envelope {
+    position: absolute;
+    font-size: 24px;
+    z-index: 2000;
+    pointer-events: none;
+    transition: left 1.5s linear, top 1.5s linear;
+    transform: translate(-50%, -50%);
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+}
+.datagram-error {
+    filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.9));
+}
+.hud-highlight {
+    color: #f59e0b !important;
+    text-shadow: 0 0 5px rgba(245, 158, 11, 0.4);
+}

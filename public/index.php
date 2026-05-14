@@ -8,10 +8,6 @@
 session_set_cookie_params(['path' => '/']); 
 session_start();
 
-// Mode Débogage (À commenter en production)
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
-
 // 2. Importation des dépendances du noyau
 require_once __DIR__ . '/../config/configuration.php';
 require_once __DIR__ . '/../core/BaseDeDonnees.php';
@@ -22,7 +18,7 @@ try {
     $pdo = BaseDeDonnees::obtenirInstance();
     $auth = new GestionnaireAuth($pdo);
 } catch (Exception $e) {
-    die("Erreur critique d'initialisation : " . $e->getMessage());
+    die("Erreur critique : Impossible d'initialiser l'application.");
 }
 
 // 4. Sécurisation du routage (Whitelist)

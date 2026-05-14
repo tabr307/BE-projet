@@ -43,15 +43,17 @@ class Scenario {
     public function creerScenario(int $utilisateurId, string $nom, string $description = ''): int {
         $stmt = $this->pdo->prepare("
             INSERT INTO scenario (utilisateur_id, nom, description) 
-            VALUES (:uid, :nom, :desc) 
-            RETURNING id
+            VALUES (:uid, :nom, :desc)
         ");
+        
         $stmt->execute([
             ':uid'  => $utilisateurId, 
             ':nom'  => trim($nom),
             ':desc' => trim($description)
         ]);
-        return (int) $stmt->fetchColumn();
+        
+        // Extraction de l'ID via le pilote PDO de manière agnostique
+        return (int) $this->pdo->lastInsertId();
     }
 
     /**
@@ -63,5 +65,36 @@ class Scenario {
             WHERE id = :id AND utilisateur_id = :uid
         ");
         return $stmt->execute([':id' => $id, ':uid' => $utilisateurId]);
+    }
+
+    /**
+     * Administration : Liste les scénarios vides (sans routeurs, switchs, ni hôtes).
+     */
+    public function listerScenariosVides(): array {
+        $stmt = $this->pdo->query("
+            SELECT s.id, s.nom, u.identifiant as proprietaire
+            FROM scenario s
+            JOIN utilisateur u ON s.utilisateur_id = u.id
+            LEFT JOIN routeur r ON r.scenario_id = s.id
+            LEFT JOIN switch sw ON sw.scenario_id = s.id
+            LEFT JOIN hote h ON h.scenario_id = s.id
+            WHERE r.id IS NULL AND sw.id IS NULL AND h.id IS NULL
+        ");
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Administration : Supprime tous les scénarios vides.
+     */
+    public function purgerScenariosVides(): int {
+        $vides = $this->listerScenariosVides();
+        $count = 0;
+        foreach ($vides as $v) {
+            $stmt = $this->pdo->prepare("DELETE FROM scenario WHERE id = ?");
+            if ($stmt->execute([$v['id']])) {
+                $count++;
+            }
+        }
+        return $count;
     }
 }

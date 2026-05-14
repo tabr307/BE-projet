@@ -153,7 +153,8 @@
 
 /* 6. CARTE NOUVEAU SCÉNARIO (Inspirée de image_4cfaf5.png) */
 .carte-nouveau {
-    border: 2px dashed #cbd5e1; /* Gris bleuté plus doux */
+    border: 2px dashed #cbd5e1;
+    /* Gris bleuté plus doux */
     background: var(--blanc);
     display: flex;
     flex-direction: column;
@@ -168,19 +169,29 @@
 .carte-nouveau:hover {
     background-color: #f8fafc;
     border-color: #94a3b8;
+
+}
+
+[data-theme="dark"] .carte-nouveau:hover {
+    background-color: var(--bg-gris);
+    /* Correspond au gris clair du mode sombre défini dans variables.css */
+    border-color: var(--input-bordure);
 }
 
 .plus-icon {
-    font-size: 5rem;    /* Taille XL pour le symbole + */
-    color: #94a3b8;     /* Gris bleuté clair */
+    font-size: 5rem;
+    /* Taille XL pour le symbole + */
+    color: #94a3b8;
+    /* Gris bleuté clair */
     line-height: 0.8;
     font-weight: 300;
     margin-bottom: 0.5rem;
+    color: var(--texte-muet);
 }
 
 .carte-nouveau .texte-muet {
     font-weight: 600;
-    color: #1e293b;
+    color: var(--texte-principal);
     font-size: 1rem;
 }
 
@@ -196,7 +207,9 @@
     text-align: center;
 }
 
-.hidden { display: none !important; }
+.hidden {
+    display: none !important;
+}
 
 .texte-muet {
     color: var(--texte-muet);

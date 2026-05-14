@@ -12,6 +12,15 @@ body {
     color: var(--texte-principal);
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+main#app {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
 }
 
 /* 2. En-tête (Navigation) */
@@ -22,7 +31,8 @@ body {
     padding: 0.75rem 2rem;
     background: var(--blanc);
     border-bottom: 1px solid var(--bordure);
-    height: 60px; /* Hauteur fixe pour la cohérence */
+    height: 60px;
+    /* Hauteur fixe pour la cohérence */
     position: sticky;
     top: 0;
     z-index: 100;
@@ -43,7 +53,8 @@ body {
 }
 
 .lien-deconnexion {
-    color: #6366f1; /* Bleu/Violet comme sur ta capture */
+    color: #6366f1;
+    /* Bleu/Violet comme sur ta capture */
     text-decoration: none;
     font-weight: 500;
 }
@@ -54,9 +65,14 @@ body {
 
 /* 3. Conteneurs de contenu */
 .conteneur {
-    max-width: 1200px; /* Un peu plus large pour les grilles */
+    width: 100%;
+    /* Injection du correctif : Empêche l'effondrement Flexbox */
+    max-width: 1200px;
+    /* Un peu plus large pour les grilles */
     margin: 0 auto;
     padding: 2rem 1.5rem;
+    box-sizing: border-box;
+    /* Garantie du calcul des marges internes */
 }
 
 /* 4. Mise en page de l'Authentification (Centrage vertical/horizontal) */
@@ -64,7 +80,8 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    min-height: calc(100vh - 60px); /* Prend toute la hauteur moins la nav si présente */
+    min-height: calc(100vh - 60px);
+    /* Prend toute la hauteur moins la nav si présente */
     padding: 1rem;
 }
 
@@ -80,4 +97,14 @@ body {
     margin: 0;
     font-size: 1.8rem;
     font-weight: 700;
+}
+
+/* 6. Pied de page */
+.pied-page {
+    text-align: center;
+    padding: 1.5rem;
+    font-size: 0.85rem;
+    color: var(--texte-muet);
+    border-top: 1px solid var(--bordure);
+    margin-top: auto;
 }

@@ -23,6 +23,12 @@
             </div>
         <?php endif; ?>
 
+        <?php if (isset($_GET['message']) && $_GET['message'] === 'success'): ?>
+            <div class="alerte-succes" style="background:#dcfce7; color:#166534; padding:10px; border-radius:6px; margin-bottom:15px; font-size:14px; text-align:center; border:1px solid #bbf7d0;">
+                Inscription réussie ! Vous pouvez maintenant vous connecter.
+            </div>
+        <?php endif; ?>
+
         <!-- Formulaire de Connexion -->
         <form id="login-form" action="api.php?action=login" method="POST" class="auth-form">
             <div class="form-group">

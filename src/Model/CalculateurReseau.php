@@ -25,4 +25,18 @@ class CalculateurReseau {
 
         return ($ip1Bin & $masqueBin) === ($ip2Bin & $masqueBin);
     }
+
+    // WBS 4.0 : Calcule un pseudo-checksum hexadécimal basé sur l'en-tête IP
+    public static function calculerChecksumHex(int $ttl, string $src, string $dest): string {
+        $ipSrcParts = explode('.', $src);
+        $ipDestParts = explode('.', $dest);
+        
+        $sum = $ttl;
+        foreach ($ipSrcParts as $part) $sum += (int)$part;
+        foreach ($ipDestParts as $part) $sum += (int)$part;
+        
+        // Complément à un classique simulé : on masque sur 16 bits
+        $checksum = (~$sum) & 0xFFFF;
+        return '0x' . strtoupper(str_pad(dechex($checksum), 4, '0', STR_PAD_LEFT));
+    }
 }

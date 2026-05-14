@@ -12,6 +12,8 @@
     <!-- Chargement de la librairie vis.js pour le WBS 3.0 -->
     <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <script src="js/moteur-visuel.js"></script>
+    <!-- Moteur d'animation WBS 5.0 -->
+    <script src="js/animation.js"></script>
 <?php endif; ?>
 
 </body>

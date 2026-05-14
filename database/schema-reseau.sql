@@ -3,6 +3,8 @@
 -- =============================================================================
 
 -- Purge de l'existant
+DROP TABLE IF EXISTS liaison_hote_hote CASCADE;
+DROP TABLE IF EXISTS liaison_hote_interface CASCADE;
 DROP TABLE IF EXISTS liaison_interface_interface CASCADE;
 DROP TABLE IF EXISTS liaison_interface_switch CASCADE;
 DROP TABLE IF EXISTS liaison_hote_switch CASCADE;
@@ -87,6 +89,7 @@ CREATE TABLE route_statique (
 CREATE TABLE hote (
     id SERIAL PRIMARY KEY,
     nom VARCHAR(50) NOT NULL,
+    nom_interface VARCHAR(50) DEFAULT 'eth0',
     adresse_ip INET,
     passerelle_ip INET,
     pos_x DOUBLE PRECISION DEFAULT 0,
@@ -116,6 +119,19 @@ CREATE TABLE liaison_interface_interface (
     interface_1_id INT NOT NULL REFERENCES interface_routeur(id) ON DELETE CASCADE,
     PRIMARY KEY (interface_id, interface_1_id),
     CHECK (interface_id <> interface_1_id)
+);
+
+CREATE TABLE liaison_hote_interface (
+    hote_id INT NOT NULL REFERENCES hote(id) ON DELETE CASCADE,
+    interface_id INT NOT NULL REFERENCES interface_routeur(id) ON DELETE CASCADE,
+    PRIMARY KEY (hote_id, interface_id)
+);
+
+CREATE TABLE liaison_hote_hote (
+    hote_1_id INT NOT NULL REFERENCES hote(id) ON DELETE CASCADE,
+    hote_2_id INT NOT NULL REFERENCES hote(id) ON DELETE CASCADE,
+    PRIMARY KEY (hote_1_id, hote_2_id),
+    CHECK (hote_1_id <> hote_2_id)
 );
 
 -- =============================================================================

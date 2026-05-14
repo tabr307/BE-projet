@@ -132,12 +132,9 @@ if (!$idScenario) {
 
             <!-- Section Hôte (Visible uniquement pour les hôtes) -->
             <div id="section-hote" style="display:none; margin-top:20px;">
-                <div id="hote-verrouillage-alerte" style="background:#fef2f2; border:1px solid #fca5a5; color:#ef4444; padding:10px; border-radius:6px; margin-bottom:10px; font-size:13px; font-weight:bold;">
-                    ⚠️ Verrouillage Actif : Cet hôte n'est pas physiquement rattaché à un équipement réseau (Switch). La configuration est désactivée.
-                </div>
-                
                 <div id="form-config-hote">
                     <h4 class="texte-muet text-sm mb-2">Configuration IP de l'Hôte</h4>
+                    <input type="text" id="hote-nom-interface" placeholder="Nom interface (ex: eth0)" class="dark-input mb-2" style="width:100%;" value="eth0">
                     <div style="display:flex; gap:8px; margin-bottom:8px;">
                         <input type="text" id="hote-ip" placeholder="Adresse IP (ex: 192.168.1.10)" class="dark-input" style="flex:2;">
                         <input type="number" id="hote-cidr" placeholder="CIDR (ex: 24)" class="dark-input" style="flex:1;" min="0" max="32">
@@ -157,47 +154,85 @@ if (!$idScenario) {
 
 <!-- 2. MODALE DE RÉSOLUTION D'AMBIGUÏTÉ DE PORT (modal-choix-interface) -->
 <div id="modal-choix-interface" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:2000; display:flex; justify-content:center; align-items:center;">
-    <div style="background:#ffffff; padding:24px; border-radius:8px; width:450px; box-shadow:0 4px 10px rgba(0,0,0,0.2);">
-        <h3 style="margin-top:0; color:#1f2937; font-size:1.1rem; border-bottom:1px solid #e5e7eb; padding-bottom:10px;">Résolution de port physique</h3>
-        <p style="font-size:14px; color:#4b5563; margin:15px 0;">Ambiguïté matérielle détectée. Sélectionner l'interface cible pour l'établissement de la liaison de niveau 2/3 :</p>
-        <select id="select-interface-cible" style="width:100%; padding:10px; margin-bottom:20px; border:1px solid #d1d5db; border-radius:4px; font-family:monospace; font-size:13px;"></select>
+    <div style="background:var(--blanc); padding:24px; border-radius:8px; width:450px; box-shadow:var(--ombre-lg);">
+        <h3 style="margin-top:0; color:var(--texte-principal); font-size:1.1rem; border-bottom:1px solid var(--bordure); padding-bottom:10px;">Résolution de port physique</h3>
+        <p style="font-size:14px; color:var(--texte-muet); margin:15px 0;">Ambiguïté matérielle détectée. Sélectionner l'interface cible pour l'établissement de la liaison de niveau 2/3 :</p>
+        
+        <select id="select-interface-cible" style="width:100%; padding:10px; margin-bottom:20px; background:var(--input-bg); color:var(--texte-principal); border:1px solid var(--input-bordure); border-radius:4px; font-family:monospace; font-size:13px;"></select>
+        
         <div style="display:flex; justify-content:flex-end; gap:12px;">
-            <button id="btn-annuler-interface" type="button" style="padding:8px 16px; border:1px solid #d1d5db; background:#f9fafb; color:#374151; border-radius:4px; cursor:pointer; font-weight:bold;">Annuler</button>
-            <button id="btn-confirmer-interface" type="button" style="padding:8px 16px; border:none; background:#3b82f6; color:#ffffff; border-radius:4px; cursor:pointer; font-weight:bold;">Connecter</button>
+            <button id="btn-annuler-interface" type="button" class="btn-outline" style="padding:8px 16px; font-weight:bold;">Annuler</button>
+            <button id="btn-confirmer-interface" type="button" class="btn-principal" style="padding:8px 16px; font-weight:bold;">Connecter</button>
         </div>
     </div>
 </div>
 <!-- 3. MODALE D'ALERTE SYSTÈME -->
 <div id="modal-alerte" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:3000; display:flex; justify-content:center; align-items:center;">
-    <div style="background:#ffffff; padding:24px; border-radius:8px; width:400px; box-shadow:0 4px 10px rgba(0,0,0,0.2); text-align:center;">
-        <h3 style="margin-top:0; color:#ef4444; font-size:1.1rem; border-bottom:1px solid #e5e7eb; padding-bottom:10px;">Notification Système</h3>
-        <p id="texte-alerte" style="font-size:14px; color:#4b5563; margin:20px 0; line-height:1.4;"></p>
-        <button id="btn-fermer-alerte" type="button" style="padding:8px 24px; border:none; background:#ef4444; color:#ffffff; border-radius:4px; cursor:pointer; font-weight:bold;">OK</button>
+    <div style="background:var(--blanc); padding:24px; border-radius:8px; width:400px; box-shadow:0 4px 10px rgba(0,0,0,0.2); text-align:center;">
+        <h3 style="margin-top:0; color:var(--danger, #ef4444); font-size:1.1rem; border-bottom:1px solid var(--bordure); padding-bottom:10px;">Notification Système</h3>
+        <p id="texte-alerte" style="font-size:14px; color:var(--texte-principal); margin:20px 0; line-height:1.4;"></p>
+        <button id="btn-fermer-alerte" type="button" style="padding:8px 24px; border:none; background:var(--danger, #ef4444); color:#ffffff; border-radius:4px; cursor:pointer; font-weight:bold;">OK</button>
     </div>
 </div>
 
 <!-- 4. MODALE DE CONFIRMATION D'ACTION -->
 <div id="modal-confirmation" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:3000; display:flex; justify-content:center; align-items:center;">
-    <div style="background:#ffffff; padding:24px; border-radius:8px; width:400px; box-shadow:0 4px 10px rgba(0,0,0,0.2);">
-        <h3 style="margin-top:0; color:#f59e0b; font-size:1.1rem; border-bottom:1px solid #e5e7eb; padding-bottom:10px;">Confirmation requise</h3>
-        <p id="texte-confirmation" style="font-size:14px; color:#4b5563; margin:20px 0;"></p>
+    <div style="background:var(--blanc); padding:24px; border-radius:8px; width:400px; box-shadow:0 4px 10px rgba(0,0,0,0.2);">
+        <h3 style="margin-top:0; color:#f59e0b; font-size:1.1rem; border-bottom:1px solid var(--bordure); padding-bottom:10px;">Confirmation requise</h3>
+        <p id="texte-confirmation" style="font-size:14px; color:var(--texte-principal); margin:20px 0;"></p>
         <div style="display:flex; justify-content:flex-end; gap:12px;">
-            <button id="btn-annuler-confirmation" type="button" style="padding:8px 16px; border:1px solid #d1d5db; background:#f9fafb; color:#374151; border-radius:4px; cursor:pointer; font-weight:bold;">Annuler</button>
+            <button id="btn-annuler-confirmation" type="button" class="btn-outline">Annuler</button>
             <button id="btn-valider-confirmation" type="button" style="padding:8px 16px; border:none; background:#f59e0b; color:#ffffff; border-radius:4px; cursor:pointer; font-weight:bold;">Confirmer</button>
         </div>
     </div>
 </div>
 <!-- 5. MODALE DE SAISIE DE TEXTE (Remplacement de prompt) -->
 <div id="modal-saisie" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:3000; display:flex; justify-content:center; align-items:center;">
-    <div style="background:#ffffff; padding:24px; border-radius:8px; width:400px; box-shadow:0 4px 10px rgba(0,0,0,0.2);">
-        <h3 style="margin-top:0; color:#3b82f6; font-size:1.1rem; border-bottom:1px solid #e5e7eb; padding-bottom:10px;">Saisie requise</h3>
-        <label id="texte-saisie" style="display:block; font-size:14px; color:#4b5563; margin:15px 0 10px; font-weight:bold;"></label>
-        <input type="text" id="input-saisie" style="width:100%; padding:10px; border:1px solid #d1d5db; border-radius:4px; font-size:14px; margin-bottom:20px;">
+    <div style="background:var(--blanc); padding:24px; border-radius:8px; width:400px; box-shadow:0 4px 10px rgba(0,0,0,0.2);">
+        <h3 style="margin-top:0; color:#3b82f6; font-size:1.1rem; border-bottom:1px solid var(--bordure); padding-bottom:10px;">Saisie requise</h3>
+        <label id="texte-saisie" style="display:block; font-size:14px; color:var(--texte-principal); margin:15px 0 10px; font-weight:bold;"></label>
+        <input type="text" id="input-saisie" class="dark-input" style="width:100%; padding:10px; border-radius:4px; font-size:14px; margin-bottom:20px;">
         <div style="display:flex; justify-content:flex-end; gap:12px;">
-            <button id="btn-annuler-saisie" type="button" style="padding:8px 16px; border:1px solid #d1d5db; background:#f9fafb; color:#374151; border-radius:4px; cursor:pointer; font-weight:bold;">Annuler</button>
-            <button id="btn-valider-saisie" type="button" style="padding:8px 16px; border:none; background:#3b82f6; color:#ffffff; border-radius:4px; cursor:pointer; font-weight:bold;">Valider</button>
+            <button id="btn-annuler-saisie" type="button" class="btn-outline">Annuler</button>
+            <button id="btn-valider-saisie" type="button" class="btn-primary">Valider</button>
         </div>
     </div>
+</div>
+
+<!-- 6. MODALE DE SIMULATION WBS 5.0 -->
+<div id="modal-simulation" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:3000; display:flex; justify-content:center; align-items:center;">
+    <div style="background:var(--blanc, #ffffff); padding:24px; border-radius:8px; width:400px; box-shadow:0 4px 10px rgba(0,0,0,0.2);">
+        <h3 style="margin-top:0; color:var(--texte-principal, #1f2937); font-size:1.1rem; border-bottom:1px solid var(--bordure, #e5e7eb); padding-bottom:10px;">Lancer une simulation</h3>
+        
+        <div class="form-group" style="margin-top: 15px;">
+            <label class="texte-muet text-sm mb-1 block">Hôte Source</label>
+            <select id="sim-source" class="dark-input" style="width:100%; padding:8px; border-radius:4px;"></select>
+        </div>
+        
+        <div class="form-group" style="margin-top: 15px;">
+            <label class="texte-muet text-sm mb-1 block">Hôte Destination</label>
+            <select id="sim-dest" class="dark-input" style="width:100%; padding:8px; border-radius:4px;"></select>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:12px; margin-top: 20px;">
+            <button type="button" class="btn-outline" onclick="fermerModalSimulation()">Annuler</button>
+            <button type="button" class="btn-primary" onclick="executerSimulation()">Démarrer ✉️</button>
+        </div>
+    </div>
+</div>
+
+<!-- 7. HUD ANIMATION IP (WBS 5.0) -->
+<div id="hud-simulation" class="hidden" style="position:absolute; background:var(--bg-clair, #f8fafc); border:1px solid var(--bordure, #e5e7eb); border-radius:8px; padding:15px; box-shadow:0 4px 15px rgba(0,0,0,0.1); z-index:2500; font-family:monospace; pointer-events:none; transition: all 0.3s ease;">
+    <h4 style="margin:0 0 10px 0; color:var(--texte-principal, #1f2937); font-size:14px; text-transform:uppercase; letter-spacing:1px; border-bottom:1px solid var(--bordure); padding-bottom:5px;">En-tête IPv4</h4>
+    <div style="font-size:12px; color:var(--texte-muet, #4b5563); display:grid; grid-template-columns: 80px 1fr; gap:5px;">
+        <strong>ID:</strong> <span id="hud-id">-</span>
+        <strong>Flags:</strong> <span id="hud-df">-</span>
+        <strong>TTL:</strong> <span id="hud-ttl" style="font-weight:bold; transition:color 0.3s;">-</span>
+        <strong>Checksum:</strong> <span id="hud-checksum" style="font-weight:bold; transition:color 0.3s;">-</span>
+        <strong>Source:</strong> <span id="hud-src">-</span>
+        <strong>Dest:</strong> <span id="hud-dest">-</span>
+    </div>
+    <div id="hud-message" style="margin-top:10px; font-weight:bold; color:var(--primaire, #3b82f6); text-align:center; font-size:12px;"></div>
 </div>
 <script>
     const CURRENT_SCENARIO_ID = <?php echo $idScenario; ?>;

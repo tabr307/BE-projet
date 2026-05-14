@@ -9,18 +9,61 @@ const AppClient = {
      * Crée un nouveau scénario en base de données.
      * Appelé par le bouton d'ajout sur le tableau de bord.
      */
+    /**
+     * Crée un nouveau scénario en base de données via une modale DOM Asynchrone.
+     */
     async creerScenario() {
-        const nom = prompt("Entrez le nom du nouveau scénario :");
-        
+        // Encapsulation de la logique UI dans une Promesse
+        const demanderNomScenario = () => {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('modal-saisie-scenario');
+                const input = document.getElementById('input-saisie-scenario');
+                const btnValider = document.getElementById('btn-valider-saisie-scenario');
+                const btnAnnuler = document.getElementById('btn-annuler-saisie-scenario');
+
+                if (!modal) {
+                    // Fallback de sécurité si le DOM n'est pas chargé
+                    resolve(prompt("Entrez le nom du nouveau scénario :"));
+                    return;
+                }
+
+                input.value = '';
+                modal.classList.remove('hidden');
+                input.focus();
+
+                const cleanUp = () => {
+                    modal.classList.add('hidden');
+                    btnValider.removeEventListener('click', onValider);
+                    btnAnnuler.removeEventListener('click', onAnnuler);
+                    input.removeEventListener('keypress', onEnter);
+                };
+
+                const onValider = () => { cleanUp(); resolve(input.value); };
+                const onAnnuler = () => { cleanUp(); resolve(null); };
+                const onEnter = (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        onValider();
+                    }
+                };
+
+                btnValider.addEventListener('click', onValider);
+                btnAnnuler.addEventListener('click', onAnnuler);
+                input.addEventListener('keypress', onEnter);
+            });
+        };
+
+        const nom = await demanderNomScenario();
+
         if (!nom || nom.trim() === "") return;
 
         try {
             const reponse = await fetch('api.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    action: 'creer_scenario', 
-                    nom: nom.trim() 
+                body: JSON.stringify({
+                    action: 'creer_scenario',
+                    nom: nom.trim()
                 })
             });
 
@@ -38,21 +81,51 @@ const AppClient = {
     },
 
     /**
-     * Supprime un scénario après confirmation.
+     * Supprime un scénario après confirmation via modale asynchrone.
      * @param {number} id - L'identifiant du scénario à supprimer.
      */
     async supprimerScenario(id) {
-        if (!id || !confirm("Voulez-vous vraiment supprimer ce scénario et tout son contenu ?")) {
-            return;
-        }
+        if (!id) return;
+
+        // Encapsulation de l'attente de confirmation dans une Promesse
+        const demanderConfirmation = () => {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('modal-confirmation-scenario');
+                const btnValider = document.getElementById('btn-valider-confirmation-scenario');
+                const btnAnnuler = document.getElementById('btn-annuler-confirmation-scenario');
+
+                if (!modal) {
+                    // Fallback de sécurité
+                    resolve(confirm("Voulez-vous vraiment supprimer ce scénario et tout son contenu ?"));
+                    return;
+                }
+
+                modal.classList.remove('hidden');
+
+                const cleanUp = () => {
+                    modal.classList.add('hidden');
+                    btnValider.removeEventListener('click', onValider);
+                    btnAnnuler.removeEventListener('click', onAnnuler);
+                };
+
+                const onValider = () => { cleanUp(); resolve(true); };
+                const onAnnuler = () => { cleanUp(); resolve(false); };
+
+                btnValider.addEventListener('click', onValider);
+                btnAnnuler.addEventListener('click', onAnnuler);
+            });
+        };
+
+        const estConfirme = await demanderConfirmation();
+        if (!estConfirme) return;
 
         try {
             const reponse = await fetch('api.php', {
-                method: 'POST', // Ajuster selon le standard CRUD si DELETE est supporté par l'API
+                method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    action: 'supprimer_scenario', 
-                    id: parseInt(id) 
+                body: JSON.stringify({
+                    action: 'supprimer_scenario',
+                    id: parseInt(id)
                 })
             });
 
@@ -117,7 +190,7 @@ const AppClient = {
 
         // Validation stricte du format IPv4 (Regex INET)
         const regexIPv4 = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
-        
+
         if (ip !== '' && !regexIPv4.test(ip)) {
             alert("Violation de contrainte : Format de l'Adresse IP invalide.");
             return;
@@ -149,7 +222,7 @@ const AppClient = {
                 // Fermeture de la modale
                 const modale = document.getElementById('editeur-hote');
                 if (modale) modale.style.display = 'none';
-                
+
                 // Indication dans la console pour l'intégration Vis.js (WBS 5.5.x)
                 console.info(`Attributs L3 mis à jour pour l'entité ID: ${id}`);
             } else {
@@ -166,7 +239,7 @@ const AppClient = {
  * Initialisation des écouteurs d'événements au chargement du DOM.
  */
 document.addEventListener('DOMContentLoaded', () => {
-    
+
     // 1. Gestion du bouton "Nouveau scénario"
     const btnNouveau = document.getElementById('btn-creer-scenario');
     if (btnNouveau) {
@@ -209,7 +282,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function chargerTableRoutage(routeurId) {
         const reponse = await fetch(`api.php?action=get_routes&routeur_id=${routeurId}`);
         const routes = await reponse.json();
-        
+
         const container = document.getElementById('table-body-routes');
         container.innerHTML = ''; // Reset synchrone du DOM
 
