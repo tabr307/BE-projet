@@ -40,6 +40,56 @@ function fermerModalSimulation() {
 }
 
 let animationEnCours = false;
+let simulationStoppee = false;
+let timeoutFinSimulation = null;
+
+// Gestion de la vitesse de simulation
+const VITESSES = [1, 2, 4];
+let indexVitesse = 0;
+let vitesseMultiplicateur = 1;
+
+function cyclerVitesse() {
+    indexVitesse = (indexVitesse + 1) % VITESSES.length;
+    vitesseMultiplicateur = VITESSES[indexVitesse];
+    const btn = document.getElementById('btn-vitesse');
+    if (btn) btn.textContent = 'x' + vitesseMultiplicateur;
+}
+
+function mettreAJourBoutons(simulationActive) {
+    const btnSimuler = document.getElementById('btn-lancer-simulation');
+    const btnStop = document.getElementById('btn-stop-simulation');
+    if (btnSimuler) {
+        btnSimuler.disabled = simulationActive;
+        btnSimuler.style.opacity = simulationActive ? '0.5' : '1';
+        btnSimuler.style.cursor = simulationActive ? 'not-allowed' : 'pointer';
+    }
+    if (btnStop) {
+        btnStop.disabled = !simulationActive;
+        btnStop.style.opacity = simulationActive ? '1' : '0.5';
+        btnStop.style.cursor = simulationActive ? 'pointer' : 'not-allowed';
+    }
+}
+
+function nettoyerSimulation() {
+    if (timeoutFinSimulation) {
+        clearTimeout(timeoutFinSimulation);
+        timeoutFinSimulation = null;
+    }
+    const hud = document.getElementById('hud-simulation');
+    if (hud) hud.classList.add('hidden');
+    if (enveloppeDOM) {
+        enveloppeDOM.remove();
+        enveloppeDOM = null;
+    }
+    animationEnCours = false;
+    mettreAJourBoutons(false);
+}
+
+function arreterSimulation() {
+    if (!animationEnCours) return;
+    simulationStoppee = true;
+    nettoyerSimulation();
+}
 
 async function executerSimulation() {
     if (animationEnCours) return;
@@ -59,11 +109,8 @@ async function executerSimulation() {
     fermerModalSimulation();
     
     animationEnCours = true;
-    const btnSimulerHeader = document.querySelector('.btn-simuler');
-    if (btnSimulerHeader) {
-        btnSimulerHeader.disabled = true;
-        btnSimulerHeader.style.opacity = '0.5';
-    }
+    simulationStoppee = false;
+    mettreAJourBoutons(true);
 
     // Lancer la requête de simulation
     try {
@@ -78,23 +125,23 @@ async function executerSimulation() {
             })
         });
 
+        if (simulationStoppee) return;
+
         const data = await response.json();
         
         if (data.statut === 'succes' || data.statut === 'erreur') {
             await demarrerAnimation(data.trace, data.statut === 'erreur' ? data.message : "Arrivée à destination !");
         } else {
             afficherAlerte("Erreur inattendue : " + JSON.stringify(data));
+            nettoyerSimulation();
         }
 
     } catch (error) {
         console.error(error);
-        afficherAlerte("Impossible de contacter le moteur de routage.");
-    } finally {
-        animationEnCours = false;
-        if (btnSimulerHeader) {
-            btnSimulerHeader.disabled = false;
-            btnSimulerHeader.style.opacity = '1';
+        if (!simulationStoppee) {
+            afficherAlerte("Impossible de contacter le moteur de routage.");
         }
+        nettoyerSimulation();
     }
 }
 
@@ -174,15 +221,25 @@ async function demarrerAnimation(traceInitiale, messageFinal) {
     enveloppeDOM.textContent = '✉️';
     document.getElementById('network-canvas').appendChild(enveloppeDOM);
 
-    // Vitesse de transition
-    const DELAI_SAUT_MS = 1500;
+    // Vitesse de transition (ajustée selon le multiplicateur)
+    const DELAI_SAUT_MS = 1500 / vitesseMultiplicateur;
+    enveloppeDOM.style.transition = `left ${DELAI_SAUT_MS / 1000}s linear, top ${DELAI_SAUT_MS / 1000}s linear`;
     
     for (let i = 0; i < trace.length; i++) {
+        if (simulationStoppee) return; // Arrêt immédiat si demandé
         const hop = trace[i];
         
         // Mettre à jour HUD (En-tête IP)
         if (hop.etat_datagramme) {
             mettreAJourHUD(hop.etat_datagramme, hop.hop_index);
+        }
+
+        // Détection du datagramme ICMP retour — Bascule en enveloppe rouge
+        if (hop.type_paquet === 'icmp_time_exceeded' && !enveloppeDOM.classList.contains('datagram-error')) {
+            enveloppeDOM.classList.add('datagram-error');
+            enveloppeDOM.textContent = '❌';
+            document.getElementById('hud-message').textContent = 'ICMP Time Exceeded — Retour vers la source';
+            document.getElementById('hud-message').style.color = "var(--rouge, #ef4444)";
         }
 
         // Trouver les coordonnées du nœud vis.js (ex: hotes_1, routeurs_2)
@@ -226,11 +283,9 @@ async function demarrerAnimation(traceInitiale, messageFinal) {
         document.getElementById('hud-message').textContent = "Erreur : " + messageFinal;
     }
 
-    // L'enveloppe disparaît au bout de 5 secondes
-    setTimeout(() => {
-        hud.classList.add('hidden');
-        if (enveloppeDOM) enveloppeDOM.remove();
-        enveloppeDOM = null;
+    // L'enveloppe disparaît au bout de 5 secondes, puis on réactive le bouton Simuler
+    timeoutFinSimulation = setTimeout(() => {
+        nettoyerSimulation();
     }, 5000);
 }
 
@@ -248,9 +303,14 @@ function mettreAJourHUD(etat, hopIndex) {
     const elDst = document.getElementById('hud-dest');
 
     elId.textContent = etat.id;
-    elDf.textContent = etat.df;
-    elSrc.textContent = etat.ip_source;
-    elDst.textContent = etat.ip_dest;
+    elDf.textContent = etat.df ? 'DF=1' : 'DF=0';
+    elSrc.textContent = etat.src;
+    elDst.textContent = etat.dest;
+
+    // Indicateur ICMP si présent
+    if (etat.type_paquet === 'icmp_time_exceeded') {
+        elSrc.textContent = etat.src + ' (ICMP)';
+    }
 
     // Surlignage TTL si modifié
     if (hopIndex > 0 && dernierTTL !== -1 && etat.ttl !== dernierTTL) {

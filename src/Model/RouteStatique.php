@@ -36,6 +36,7 @@ class RouteStatique {
             SELECT id, reseau_dest, masque_dest, next_hop, routeur_id 
             FROM route_statique 
             WHERE routeur_id = :routeur_id
+            ORDER BY id ASC
         ");
         $stmt->execute([':routeur_id' => $routeur_id]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);

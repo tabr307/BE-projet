@@ -20,8 +20,14 @@ if (!$idScenario) {
         <strong id="nom-scenario">Chargement...</strong>
     </div>
     <div class="actions-utilisateur">
-        <button class="btn-simuler" onclick="lancerSimulation()">
+        <button class="btn-simuler" id="btn-lancer-simulation" onclick="lancerSimulation()">
             <span class="icon">▶</span> Simuler
+        </button>
+        <button class="btn-stop-simulation" id="btn-stop-simulation" onclick="arreterSimulation()" disabled>
+            <span class="icon">⏹</span> Arrêter
+        </button>
+        <button class="btn-vitesse" id="btn-vitesse" onclick="cyclerVitesse()" title="Vitesse de simulation">
+            x1
         </button>
         <span class="username"><?php echo htmlspecialchars($nomUtilisateur); ?></span>
     </div>
@@ -34,7 +40,6 @@ if (!$idScenario) {
         <nav class="tabs-equipements">
             <button class="tab-btn active" onclick="switchEquipementTab('routeurs')">Routeurs</button>
             <button class="tab-btn" onclick="switchEquipementTab('switchs')">Switchs</button>
-            <button class="tab-btn" onclick="switchEquipementTab('reseaux')">Réseaux</button>
             <button class="tab-btn" onclick="switchEquipementTab('hotes')">Hôtes</button>
         </nav>
 
@@ -59,7 +64,6 @@ if (!$idScenario) {
         <div class="legende-canvas">
             <span class="item"><span class="symbole rect"></span> Routeur</span>
             <span class="item"><span class="symbole rect-arrondi" style="background:#f0f9ff; border-color:#bae6fd;"></span> Switch</span>
-            <span class="item"><span class="symbole cercle"></span> Réseau</span>
             <span class="item"><span class="symbole rect-arrondi"></span> Hôte</span>
         </div>
     </section>

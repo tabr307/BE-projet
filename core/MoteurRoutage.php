@@ -230,7 +230,134 @@ class MoteurRoutage {
             ];
 
             if ($datagramme['ttl'] <= 0) {
-                return ['statut' => 'erreur', 'message' => "Time Exceeded : Le TTL du datagramme a atteint 0.", 'trace' => $trace];
+                // Marquage du saut où le TTL expire
+                $trace[count($trace)-1]['message'] = 'TTL expiré — Génération ICMP Time Exceeded';
+
+                // Construction du datagramme ICMP d'erreur (retour vers la source)
+                $datagrammeErreur = [
+                    'id' => rand(1000, 9999),
+                    'df' => 1,
+                    'ttl' => 64,
+                    'checksum' => CalculateurReseau::calculerChecksumHex(64, $ipEntree, $datagramme['src']),
+                    'src' => $ipEntree,
+                    'dest' => $datagramme['src'],
+                    'type_paquet' => 'icmp_time_exceeded'
+                ];
+
+                // Premier saut ICMP : le routeur émetteur de l'erreur
+                $trace[] = [
+                    'hop_index' => $hopIndex++,
+                    'type_noeud' => 'routeur',
+                    'id_noeud' => $routeurActuelId,
+                    'nom' => $tablesVirtuelles[$routeurActuelId]['nom'] ?? 'Routeur',
+                    'ip_entree' => $ipEntree,
+                    'ip_sortie' => null,
+                    'etat_datagramme' => $datagrammeErreur,
+                    'message' => 'Émission ICMP Time Exceeded vers ' . $datagramme['src'],
+                    'type_paquet' => 'icmp_time_exceeded'
+                ];
+
+                // Routage retour du datagramme ICMP vers la source originale
+                $routeurRetourId = $routeurActuelId;
+                $ipDestRetour = $datagramme['src'];
+                $sautsRetour = 0;
+
+                while (true) {
+                    if ($sautsRetour >= 30) {
+                        $trace[count($trace)-1]['message'] = 'Boucle de routage détectée sur le retour ICMP';
+                        return ['statut' => 'erreur', 'message' => "Time Exceeded + Boucle ICMP retour.", 'trace' => $trace];
+                    }
+
+                    $datagrammeErreur['ttl'] -= 1;
+                    $datagrammeErreur['checksum'] = CalculateurReseau::calculerChecksumHex(
+                        $datagrammeErreur['ttl'], $datagrammeErreur['src'], $datagrammeErreur['dest']
+                    );
+
+                    $tableRetour = $tablesVirtuelles[$routeurRetourId]['routes'];
+                    $routeRetour = self::executerLPM($ipDestRetour, $tableRetour);
+
+                    if (!$routeRetour) {
+                        $trace[count($trace)-1]['message'] = 'ICMP retour impossible — Aucune route vers la source';
+                        return ['statut' => 'erreur', 'message' => "Time Exceeded : ICMP retour impossible — Network Unreachable.", 'trace' => $trace];
+                    }
+
+                    $nextHopRetour = $routeRetour['next_hop'];
+
+                    if ($nextHopRetour === '0.0.0.0') {
+                        // Réseau directement connecté — livraison au hôte source
+                        $ipSortieRetour = null;
+                        foreach ($topologie['interfaces'] as $intf) {
+                            if ($intf['id_routeur'] == $routeurRetourId &&
+                                CalculateurReseau::estDansMemeReseau($intf['adresse_ip'], $ipDestRetour, (int)$intf['masque'])) {
+                                $ipSortieRetour = $intf['adresse_ip'];
+                                break;
+                            }
+                        }
+                        $trace[count($trace)-1]['ip_sortie'] = $ipSortieRetour;
+
+                        // Recherche du hôte source pour la livraison finale
+                        $hoteSource = null;
+                        foreach ($hotes as $h) {
+                            if ($h['adresse_ip'] === $ipDestRetour) {
+                                $hoteSource = $h;
+                                break;
+                            }
+                        }
+
+                        if ($hoteSource) {
+                            $trace[] = [
+                                'hop_index' => $hopIndex++,
+                                'type_noeud' => 'hote',
+                                'id_noeud' => $hoteSource['id'],
+                                'nom' => $hoteSource['nom'],
+                                'ip_entree' => $hoteSource['adresse_ip'],
+                                'ip_sortie' => $hoteSource['adresse_ip'],
+                                'etat_datagramme' => $datagrammeErreur,
+                                'message' => 'ICMP Time Exceeded reçu par la source',
+                                'type_paquet' => 'icmp_time_exceeded'
+                            ];
+                        }
+
+                        return ['statut' => 'erreur', 'message' => "Time Exceeded : Le TTL a atteint 0. Erreur ICMP renvoyée à la source.", 'trace' => $trace];
+                    } else {
+                        // Saut intermédiaire sur le chemin retour
+                        $ipSortieRetour = null;
+                        foreach ($topologie['interfaces'] as $intf) {
+                            if ($intf['id_routeur'] == $routeurRetourId &&
+                                CalculateurReseau::estDansMemeReseau($intf['adresse_ip'], $nextHopRetour, (int)$intf['masque'])) {
+                                $ipSortieRetour = $intf['adresse_ip'];
+                                break;
+                            }
+                        }
+                        $trace[count($trace)-1]['ip_sortie'] = $ipSortieRetour;
+
+                        $prochainRouteurRetourId = null;
+                        foreach ($topologie['interfaces'] as $intf) {
+                            if ($intf['adresse_ip'] === $nextHopRetour) {
+                                $prochainRouteurRetourId = $intf['id_routeur'];
+                                break;
+                            }
+                        }
+
+                        if (!$prochainRouteurRetourId) {
+                            return ['statut' => 'erreur', 'message' => "Time Exceeded : ICMP retour impossible — Next Hop introuvable.", 'trace' => $trace];
+                        }
+
+                        $trace[] = [
+                            'hop_index' => $hopIndex++,
+                            'type_noeud' => 'routeur',
+                            'id_noeud' => $prochainRouteurRetourId,
+                            'nom' => $tablesVirtuelles[$prochainRouteurRetourId]['nom'] ?? 'Routeur',
+                            'ip_entree' => $nextHopRetour,
+                            'ip_sortie' => null,
+                            'etat_datagramme' => $datagrammeErreur,
+                            'type_paquet' => 'icmp_time_exceeded'
+                        ];
+
+                        $routeurRetourId = $prochainRouteurRetourId;
+                        $sautsRetour++;
+                    }
+                }
             }
 
             $table = $tablesVirtuelles[$routeurActuelId]['routes'];
@@ -245,7 +372,7 @@ class MoteurRoutage {
             if ($nextHop === '0.0.0.0') {
                 $ipSortieDirecte = null;
                 foreach ($topologie['interfaces'] as $intf) {
-                    if ($intf['id_routeur'] === $routeurActuelId && CalculateurReseau::estDansMemeReseau($intf['adresse_ip'], $ipDest, (int)$intf['masque'])) {
+                    if ($intf['id_routeur'] == $routeurActuelId && CalculateurReseau::estDansMemeReseau($intf['adresse_ip'], $ipDest, (int)$intf['masque'])) {
                         $ipSortieDirecte = $intf['adresse_ip'];
                         break;
                     }
@@ -298,7 +425,7 @@ class MoteurRoutage {
             } else {
                 $ipSortieNextHop = null;
                 foreach ($topologie['interfaces'] as $intf) {
-                    if ($intf['id_routeur'] === $routeurActuelId && CalculateurReseau::estDansMemeReseau($intf['adresse_ip'], $nextHop, (int)$intf['masque'])) {
+                    if ($intf['id_routeur'] == $routeurActuelId && CalculateurReseau::estDansMemeReseau($intf['adresse_ip'], $nextHop, (int)$intf['masque'])) {
                         $ipSortieNextHop = $intf['adresse_ip'];
                         break;
                     }

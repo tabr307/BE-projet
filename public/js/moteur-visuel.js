@@ -47,13 +47,13 @@ async function initialiserEditeur() {
 
 function switchEquipementTab(type) {
     ongletActif = type;
-    const mapNoms = { 'routeurs': 'routeurs', 'switchs': 'switchs', 'reseaux': 'réseaux', 'hotes': 'hôtes', 'routes': 'routes' };
+    const mapNoms = { 'routeurs': 'routeurs', 'switchs': 'switchs', 'hotes': 'hôtes', 'routes': 'routes' };
 
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.classList.toggle('active', btn.textContent.trim().toLowerCase() === mapNoms[type]);
     });
 
-    const labelsSingulier = { 'routeurs': 'routeur', 'switchs': 'switch', 'reseaux': 'réseau', 'hotes': 'hôte', 'routes': 'route' };
+    const labelsSingulier = { 'routeurs': 'routeur', 'switchs': 'switch', 'hotes': 'hôte', 'routes': 'route' };
     const btnAjoutInfo = document.getElementById('label-type-ajout');
     if (btnAjoutInfo) btnAjoutInfo.textContent = labelsSingulier[type] || 'élément';
 
@@ -72,7 +72,6 @@ function mettreAJourInventaire(items, type) {
     const sousTitres = {
         'routeurs': 'Interface(s) configurée(s)',
         'switchs': 'Commutateur L2',
-        'reseaux': 'Réseau IP (LAN)',
         'hotes': 'Machine cible'
     };
 
@@ -195,8 +194,7 @@ async function ajouterElement() {
     const mapConfigurations = {
         'routeurs': { prefixe: 'R', actionEndpoint: 'ajouter_routeur' },
         'switchs': { prefixe: 'SW', actionEndpoint: 'ajouter_commutateur' },
-        'hotes': { prefixe: 'PC', actionEndpoint: 'ajouter_hote' },
-        'reseaux': { prefixe: 'LAN', actionEndpoint: 'ajouter_sous_reseau' }
+        'hotes': { prefixe: 'PC', actionEndpoint: 'ajouter_hote' }
     };
 
     const configTarget = mapConfigurations[ongletActif];
@@ -259,11 +257,10 @@ function dessinerReseau() {
             color: isDark ? { background: '#1e3a8a', border: '#3b82f6', highlight: { background: '#2563eb', border: '#60a5fa' } } : { background: '#f0f9ff', border: '#bae6fd' },
             shapeProperties: { borderRadius: 4 }
         },
-        reseaux: { shape: 'ellipse', ...styleBase },
         hotes: { shape: 'box', ...styleBase, shapeProperties: { borderRadius: 8 } }
     };
 
-    ['routeurs', 'switchs', 'reseaux', 'hotes'].forEach(type => {
+    ['routeurs', 'switchs', 'hotes'].forEach(type => {
         (donneesScenario[type] || []).forEach(item => {
             let itemStyle = { ...conf[type] };
 
