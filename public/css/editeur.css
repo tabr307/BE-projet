@@ -12,11 +12,9 @@
 /* ==========================================================================
    1. STRUCTURE GLOBALE ET EN-TÊTE
    ========================================================================== */
-
-/* Ajuste la hauteur pour prendre en compte tes DEUX en-têtes (Site + Éditeur) */
 .editeur-layout {
     display: flex;
-    height: calc(100vh - 125px); /* Ajustement pour éviter le débordement bas */
+    height: calc(100vh - 125px); 
     background-color: var(--blanc);
     border-top: 1px solid var(--bordure-douce);
 }
@@ -126,7 +124,6 @@
     flex-direction: column;
 }
 
-/* Onglets (Style Maquette : soulignement noir) */
 .tabs-equipements {
     display: flex;
     border-bottom: 1px solid var(--bordure-douce);
@@ -149,7 +146,6 @@
     border-bottom-color: var(--texte-principal);
 }
 
-/* Zone d'ajout (Bouton pointillé) */
 .zone-action-ajout {
     padding: 1rem;
 }
@@ -237,7 +233,6 @@
     height: 100%;
 }
 
-/* Légende flottante */
 .legende-canvas {
     position: absolute;
     bottom: 1.5rem;
@@ -260,7 +255,6 @@
     color: var(--texte-principal);
 }
 
-/* Symboles géométriques de la légende */
 .symbole {
     display: inline-block;
     width: 16px;

@@ -32,7 +32,6 @@ main#app {
     background: var(--blanc);
     border-bottom: 1px solid var(--bordure);
     height: 60px;
-    /* Hauteur fixe pour la cohérence */
     position: sticky;
     top: 0;
     z-index: 100;
@@ -54,7 +53,6 @@ main#app {
 
 .lien-deconnexion {
     color: #6366f1;
-    /* Bleu/Violet comme sur ta capture */
     text-decoration: none;
     font-weight: 500;
 }
@@ -66,22 +64,18 @@ main#app {
 /* 3. Conteneurs de contenu */
 .conteneur {
     width: 100%;
-    /* Injection du correctif : Empêche l'effondrement Flexbox */
     max-width: 1200px;
-    /* Un peu plus large pour les grilles */
     margin: 0 auto;
     padding: 2rem 1.5rem;
     box-sizing: border-box;
-    /* Garantie du calcul des marges internes */
 }
 
-/* 4. Mise en page de l'Authentification (Centrage vertical/horizontal) */
+/* 4. Mise en page de l'Authentification */
 .auth-container {
     display: flex;
     justify-content: center;
     align-items: center;
     min-height: calc(100vh - 60px);
-    /* Prend toute la hauteur moins la nav si présente */
     padding: 1rem;
 }
 

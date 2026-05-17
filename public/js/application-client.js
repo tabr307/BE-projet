@@ -9,6 +9,7 @@ const AppClient = {
      * Crée un nouveau scénario en base de données.
      * Appelé par le bouton d'ajout sur le tableau de bord.
      */
+    
     /**
      * Crée un nouveau scénario en base de données via une modale DOM Asynchrone.
      */
@@ -142,7 +143,7 @@ const AppClient = {
     },
 
     /**
-     * WBS 5.4.1 - Ouvre l'interface d'édition L3 pour un hôte spécifique.
+     * Ouvre l'interface d'édition L3 pour un hôte spécifique.
      * Récupère l'état actuel de l'hôte via l'API REST.
      * @param {number} noeudId - Identifiant du nœud Hôte
      */
@@ -180,7 +181,7 @@ const AppClient = {
     },
 
     /**
-     * WBS 5.4.1 - Valide et transmet la mutation L3 de l'hôte à l'API REST.
+     * Valide et transmet la mutation L3 de l'hôte à l'API REST.
      * @param {number} id - Identifiant de l'hôte
      */
     async soumettreConfigurationHote(id) {
@@ -188,7 +189,7 @@ const AppClient = {
         const masque = document.getElementById('input-masque-hote').value.trim();
         const passerelle = document.getElementById('input-passerelle-hote').value.trim();
 
-        // Validation stricte du format IPv4 (Regex INET)
+        // Validation stricte du format IPv4
         const regexIPv4 = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
 
         if (ip !== '' && !regexIPv4.test(ip)) {
@@ -223,7 +224,7 @@ const AppClient = {
                 const modale = document.getElementById('editeur-hote');
                 if (modale) modale.style.display = 'none';
 
-                // Indication dans la console pour l'intégration Vis.js (WBS 5.5.x)
+                // Indication dans la console pour l'intégration Vis.js 
                 console.info(`Attributs L3 mis à jour pour l'entité ID: ${id}`);
             } else {
                 alert("Erreur de mutation : " + (resultat.erreur || "Rejet de l'API"));
@@ -265,7 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // WBS 5.4.1 - Écouteur pour fermer la modale d'édition L3 manuellement
+    // Écouteur pour fermer la modale d'édition L3 manuellement
     const btnFermerModaleHote = document.getElementById('btn-annuler-hote');
     if (btnFermerModaleHote) {
         btnFermerModaleHote.addEventListener('click', (e) => {
@@ -276,7 +277,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * WBS 5.4.2 - Récupère et affiche la table de routage d'un routeur
+     * Récupère et affiche la table de routage d'un routeur
      * @param {number} routeurId 
      */
     async function chargerTableRoutage(routeurId) {
@@ -302,9 +303,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    /**
-     * WBS 5.4.2 - Transmission d'une nouvelle route statique (POST)
-     */
+    // Transmission d'une nouvelle route statique (POST)
     async function ajouterRouteStatique(routeurId) {
         const payload = {
             action: 'add_route',
@@ -315,7 +314,7 @@ document.addEventListener('DOMContentLoaded', () => {
             iface: document.getElementById('route-iface').value
         };
 
-        // Validation IPv4 obligatoire (réutiliser la Regex du WBS 5.4.1)
+        // Validation IPv4 obligatoire 
         if (!AppClient.validerIP(payload.dest)) return;
 
         await fetch('api.php', {

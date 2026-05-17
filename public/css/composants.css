@@ -151,10 +151,9 @@
     font-weight: 700;
 }
 
-/* 6. CARTE NOUVEAU SCÉNARIO (Inspirée de image_4cfaf5.png) */
+/* 6. CARTE NOUVEAU SCÉNARIO */
 .carte-nouveau {
     border: 2px dashed #cbd5e1;
-    /* Gris bleuté plus doux */
     background: var(--blanc);
     display: flex;
     flex-direction: column;
@@ -180,9 +179,7 @@
 
 .plus-icon {
     font-size: 5rem;
-    /* Taille XL pour le symbole + */
     color: #94a3b8;
-    /* Gris bleuté clair */
     line-height: 0.8;
     font-weight: 300;
     margin-bottom: 0.5rem;

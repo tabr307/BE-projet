@@ -1,6 +1,0 @@
-- les équipements qui reviennes a leur points de départ après avoir appuyé sur le bouton de changement de mode (sombre/clair)
-- les nouveaux équipement qui se chauvauche a leurs création, il faut l'empécher
-- pouvoir modifier une interface ou une route déja existante
-- double click pour editer les équipements, réseaux, hôtes
-- pouvoir connecter un hote sans passer par un switch. Donne les changements a faire au niveau du MCD.
-- Ajout de fonctionnalités de supervision via un dashboard admin(liste des utilisateurs inscrits, bannissement, purge globale des scénarios orphelins).
