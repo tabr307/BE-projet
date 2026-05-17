@@ -59,7 +59,8 @@ Le projet utilise une stack **LAMP/WAMP** classique (Apache, PostgreSQL, PHP).
 ## Guide de démarrage rapide
 
 ### 1. Créer votre premier compte
-<img width="2152" height="1306" alt="image" src="https://github.com/user-attachments/assets/b0e3f406-2055-4fce-8f5d-ce9d19328614" />
+<img width="2152" height="1306" alt="image" src="https://github.com/user-attachments/assets/b0e3f406-2055-4fce-8f5d-ce9d19328614"/>
+
 - Sur la page d'accueil, cliquez sur **Inscription**.
 - Remplissez vos informations (Nom et Mot de passe).
 - Une fois inscrit, connectez-vous pour accéder au tableau de bord.
