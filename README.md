@@ -1,50 +1,84 @@
-# Simulation Réseau IP
-## Présentation du Projet
+# Simulateur de Réseau IP (TCP/IP)
 
-Ce projet consiste en le développement d'une application Web multi-utilisateurs dédiée à la formation de techniciens réseau. L'objectif est de fournir un outil interactif pour simuler des scénarios d'adressage IPv4 et de routage statique. L'application permet de visualiser dynamiquement les infrastructures réseau et de simuler le parcours de datagrammes IP entre différents hotes. 
+Bienvenue sur le projet **Simulateur de Réseau IP**, un outil pédagogique et technique conçu pour visualiser et comprendre les mécanismes fondamentaux du routage de niveau 3 et de l'acheminement des datagrammes IP.
 
-## Objectifs Pédagogiques
+---
 
-   - Adressage IP : Maitriser les principes fondamentaux de l'IPv4.
-   - Routage : Comprendre les mécanismes du routage statique.
-   - Développement : Implémenter une application Web avec base de données et visualisation dynamique.
+## Contexte du Projet
+
+Ce projet a été réalisé dans le cadre du module **Bureau d'Études (BE)** du cursus de **L3 IRT** (Informatique, Réseaux et Télécoms) à l'Université de Toulouse. 
+
+L'objectif principal était de concrétiser les concepts théoriques des protocoles TCP/IP en développant une application capable de modéliser une infrastructure réseau complète. Le projet repose sur des standards modernes de développement : **Clean Code**, architecture modulaire et respect strict des spécifications de la **RFC 791**.
 
 ## Fonctionnalités Clés
 
-### 1. Gestion de l'Infrastructure
-   - Définition complète (ajout, modification, suppression) des réseaux, sous-réseaux et hôtes.
-   - Configuration des adresses IP pour chaque élément.  
+- **Gestion d'Infrastructure :** Création et configuration d'hôtes, de routeurs et de sous-réseaux.
+- **Routage Statique :** Implémentation d'algorithmes d'acheminement basés sur des tables de routage configurables.
+- **Visualisation Dynamique :** Utilisation de la bibliothèque `Vis.js` pour une interface interactive affichant la topologie du réseau.
+- **Moteur de Simulation :** Simulation pas à pas de l'envoi d'un paquet IP, avec affichage détaillé de l'en-tête (TTL, Identifiant, Flags DF, etc.).
 
-### 2. Routage Statique
-   - Interface intuitive pour définir et manipuler les routes statiques entre les éléments du réseau.  
+---
 
-### 3. Visualisation Dynamique
-   - Représentation graphique claire des connexions entre hôtes et routeurs via la bibliothèque vis.js.
-   - Affichage explicite des routes établies.
-   
-### 4. Simulation de Datagrammes
-   - Simulation de l'envoi d'un paquet d'un hôte vers un autre.
-   - Suivi en temps réel : Visualisation interactive du chemin emprunté.
-   - Analyse d'entête : Affichage des modifications apportées par les routeurs (TTL, Checksum, etc.).
+## Installation
 
-## Stack Technique
-   - Frontend : HTML, CSS, JavaScript (vis.js).
-   - Backend : PHP pour la gestion multi-utilisateurs avec authentification sécurisée.
-   - BD : PostgreSQL pour le stockage des configurations et scénarios.
+Le projet utilise une stack **LAMP/WAMP** classique (Apache, PostgreSQL, PHP).
 
-## Livrables du Projet
-Le projet inclut les documents suivants pour assurer un suivi professionnel:  
+### Prérequis
+- Un serveur local (WAMP, XAMPP, ou MAMP).
+- PHP 7.4 ou supérieur.
+- PostgreSQL.
 
-1. Documentation & Ressources : Sources utilisées et historique des prompts IA.  
+### Étapes d'installation
 
-2. Spécifications : Document détaillant les exigences fonctionnelles et non fonctionnelles.  
+1.  **Clonage du dépôt :**
+    ```bash
+    git clone https://github.com/tabr307/BE-projet.git
+    cd BE-projet
+    ```
 
-3. Planification : Diagramme de Gantt.  
+2.  **Configuration de la Base de Données :**
+    - Installez PostgreSQL,
+    - Créez une nouvelle base de données nommée `simulateur_reseau`.
+    - Executez le script `database/schema-reseau.sql` fourni dans le dépôt.
 
-4. Conception : Modèle de données, architecture applicative et maquettes UI.  
+3.  **Configuration du Backend :**
+    - Modifiez le fichier de configuration (ex: `config/configuration.php`) avec vos identifiants locaux :
+    ```php
+    define('DB_HOST', 'localhost');
+    define('DB_NAME', 'simulateur_reseau');
+    define('DB_USER', 'simu_user (par exemple)');
+    define('DB_PASS', 'mdp');
+    ```
 
-5. Implémentation : Code source commenté et journal de suivi des versions (Git).  
+4.  **Lancement :**
+    - Placez le dossier du projet dans votre répertoire `www/` ou `htdocs/`.
+    - Accédez à l'application via `http://localhost:3000/public`.
 
-6. Tests : Plan de tests et rapports détaillés.  
+---
 
-7. Démonstration : Vidéo de 10 minutes présentant les choix techniques et les résultats.
+## Guide de démarrage rapide
+
+### 1. Créer votre premier compte
+<img width="2152" height="1306" alt="image" src="https://github.com/user-attachments/assets/b0e3f406-2055-4fce-8f5d-ce9d19328614"/>
+
+- Sur la page d'accueil, cliquez sur **Inscription**.
+- Remplissez vos informations (Nom et Mot de passe).
+- Une fois inscrit, connectez-vous pour accéder au tableau de bord.
+
+### 2. Créer votre premier réseau
+<img width="2152" height="1306" alt="image" src="https://github.com/user-attachments/assets/20a5f7fe-8876-4ec3-bd55-87140d8232b8" />
+
+- **Étape 1 : Créer un scénario.** Cliquez sur "Nouveau Scénario" pour initialiser un espace de travail vierge.
+- **Étape 2 : Ajouter des nœuds.** Utilisez le panneau latéral pour ajouter des **Hôtes**, des **Switchs** et des **Routeurs** sur la topologie.
+- **Étape 3 : Configurer les interfaces.** Cliquez sur un équipement pour lui attribuer une adresse IP et un masque de sous-réseau, une interface ou une route.
+- **Étape 4 : Établir les liaisons.** Connectez les équipements entre eux pour définir les segments réseaux.
+<img width="2152" height="1306" alt="image" src="https://github.com/user-attachments/assets/bfc39b86-8005-4d0a-b723-5ec935288647" />
+
+### 3. Lancer une simulation
+- Cliquez sur le bouton **"Simuler"**.
+- Sélectionnez un **Hôte Source** et un **Hôte Destination**.
+- Observez le paquet se déplacer sur le graphe. À chaque saut (hop), les modifications de l'en-tête IP (décrémentation du TTL, vérification du checksum) sont re-calculées et affichées.
+<img width="2152" height="1306" alt="image" src="https://github.com/user-attachments/assets/8ab629e0-1183-4db1-95ab-b51df18d66c1" />
+
+---
+*Projet développé dans le cadre de la formation STRI L3IRT - Université de Toulouse.*
