@@ -67,6 +67,7 @@ Le projet utilise une stack **LAMP/WAMP** classique (Apache, PostgreSQL, PHP).
 
 ### 2. Créer votre premier réseau
 <img width="2152" height="1306" alt="image" src="https://github.com/user-attachments/assets/20a5f7fe-8876-4ec3-bd55-87140d8232b8" />
+
 - **Étape 1 : Créer un scénario.** Cliquez sur "Nouveau Scénario" pour initialiser un espace de travail vierge.
 - **Étape 2 : Ajouter des nœuds.** Utilisez le panneau latéral pour ajouter des **Hôtes**, des **Switchs** et des **Routeurs** sur la topologie.
 - **Étape 3 : Configurer les interfaces.** Cliquez sur un équipement pour lui attribuer une adresse IP et un masque de sous-réseau, une interface ou une route.
